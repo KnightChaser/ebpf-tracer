@@ -66,12 +66,10 @@ int tracepoint__sys_enter(struct trace_event_raw_sys_enter *ctx) {
     bpf_probe_read_kernel_str(e->enter.name, sizeof(e->enter.name), info->name);
     e->enter.num_args = info->num_args;
 
-    e->enter.args[0] = BPF_CORE_READ(ctx, args[0]);
-    e->enter.args[1] = BPF_CORE_READ(ctx, args[1]);
-    e->enter.args[2] = BPF_CORE_READ(ctx, args[2]);
-    e->enter.args[3] = BPF_CORE_READ(ctx, args[3]);
-    e->enter.args[4] = BPF_CORE_READ(ctx, args[4]);
-    e->enter.args[5] = BPF_CORE_READ(ctx, args[5]);
+    for (size_t i = 0; i < info->num_args; ++i) {
+        // Read the syscall arguments from the context.
+        e->enter.args[i] = BPF_CORE_READ(ctx, args[i]);
+    }
 
     bpf_ringbuf_submit(e, 0);
     return 0;
