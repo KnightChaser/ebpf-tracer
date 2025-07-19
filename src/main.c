@@ -1,5 +1,8 @@
 // src/main.c
+#define _POSIX_SOURCE
+#include "loader.h"
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -25,7 +28,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (pid == 0) {
-        // Child process
+        // NOTE: Child process
 
         // Redirect stdout and stderr to /dev/null
         int fd = open("/dev/null", O_WRONLY);
@@ -36,31 +39,56 @@ int main(int argc, char *argv[]) {
         dup2(fd, STDERR_FILENO);
         close(fd);
 
-        // Replace child process with the target program.
-        // assume NULL for the environment variables.
-        execve(program_to_run, &argv[1], NULL);
+        // Tell the parent that we are ready and stop ourselves.
+        // The parent will then attach the BPF program to us,
+        // and send SIGCONT to continue us.
+        kill(getpid(), SIGSTOP);
+
+        // Continue...
+        execvp(program_to_run, &argv[1]);
 
         // If execve returns, it means there was an error.
         fatal("execve failed");
     } else {
-        // Parent process
+        // NOTE: Parent process
 
-        printf("Tracer: Spawned child process with PID: %d\n", pid);
-        printf("Tracer: Waiting for child process to finish...\n");
-
+        // Wait for the child process to stop
         int status;
-        if (waitpid(pid, &status, 0) == -1) {
-            fatal("waitpid failed");
+        waitpid(pid, &status, WUNTRACED);
+        printf("Tracer: Child process stopped, attaching BPF program...\n");
+
+        // Load and attach eBPF program
+        bpf_loader_init();
+        if (bpf_loader_load_and_attach(pid) != 0) {
+            fprintf(stderr, "Failed to load and attach BPF program.\n");
+            kill(pid, SIGKILL);
+            bpf_loader_cleanup();
+            return 1;
+        }
+
+        // Continue the child process after attaching the BPF program
+        printf("Tracer: BPF program attached to the child process(PID: %d).\n",
+               pid);
+        kill(pid, SIGCONT);
+
+        // Get the trace log
+        printf("-------------- Syscall Trace ---------------\n");
+        while (waitpid(pid, &status, WNOHANG) == 0) {
+            bpf_loader_poll_events();
+        }
+        printf("\n------------ Syscall Trace Ended ------------\n");
+
+        // Clean up resources
+        bpf_loader_cleanup();
+        printf("Tracer: BPF program detached and resources cleaned up.\n");
+
+        if (WIFEXITED(status)) {
+            printf("Child process exited with status: %d\n",
+                   WEXITSTATUS(status));
+        } else if (WIFSIGNALED(status)) {
+            printf("Child process killed by signal: %d\n", WTERMSIG(status));
         } else {
-            if (WIFEXITED(status)) {
-                printf("Tracer: Child process exited with status: %d\n",
-                       WEXITSTATUS(status));
-            } else if (WIFSIGNALED(status)) {
-                printf("Tracer: Child process was terminated by signal: %d\n",
-                       WTERMSIG(status));
-            } else {
-                printf("Tracer: Child process ended abnormally.\n");
-            }
+            printf("Child process did not exit normally.\n");
         }
     }
 
