@@ -64,11 +64,22 @@ int tracepoint__sys_enter(struct trace_event_raw_sys_enter *ctx) {
 
     // Fetch metadata from the static lookup table.
     bpf_probe_read_kernel_str(e->enter.name, sizeof(e->enter.name), info->name);
-    e->enter.num_args = info->num_args;
 
-    for (size_t i = 0; i < info->num_args; ++i) {
-        // Read the syscall arguments from the context.
-        e->enter.args[i] = BPF_CORE_READ(ctx, args[i]);
+    // Cap the number of arguments to the maximum defined.
+    int num_args = info->num_args;
+    if (num_args > MAX_SYSCALL_ARGS) {
+        num_args = MAX_SYSCALL_ARGS;
+    }
+    if (num_args < 0) {
+        num_args = 0;
+    }
+    e->enter.num_args = num_args;
+
+    #pragma unroll
+    for (int i = 0; i < MAX_SYSCALL_ARGS; i++) {
+        if (i < num_args) {
+            e->enter.args[i] = BPF_CORE_READ(ctx, args[i]);
+        }
     }
 
     bpf_ringbuf_submit(e, 0);
