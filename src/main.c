@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]) {
         int status;
         waitpid(pid, &status, WUNTRACED);
         printf("Tracer: Child process stopped, attaching BPF program...\n");
-
+        
         // Load and attach eBPF program
         bpf_loader_init();
         if (bpf_loader_load_and_attach(pid) != 0) {

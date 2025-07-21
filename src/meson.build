@@ -37,10 +37,15 @@ bpf_skel_h = custom_target(
   capture: true,
 )
 
-# 4. Compilei the main user-space application
+# 4. Compile the main user-space application
+syscall_sources = files(
+  'syscalls/default.c',
+  'syscalls/openat.c',
+)
+
 executable(
   'ebpftracer',
-  sources: ['main.c', 'loader.c', bpf_skel_h],
+  sources: ['main.c', 'loader.c', bpf_skel_h, syscall_sources],
   dependencies: libbpf_dep,
   install: true,
 )

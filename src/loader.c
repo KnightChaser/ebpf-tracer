@@ -3,8 +3,12 @@
 #include "loader.h"
 #include "controller.h"
 #include "controller.skel.h"
+#include "syscalls/syscalls.h"
 #include <bpf/libbpf.h>
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/ptrace.h>
 
 // This path will be defined by Meson during compilation,
 // pointing to the compiled BPF object file.
@@ -16,6 +20,14 @@
 // by the cleanup function.
 static struct controller_bpf *g_skel = NULL;
 static struct ring_buffer *g_ring_buf = NULL;
+static pid_t g_target_pid = -1; // Store the child PID
+
+// Declare syscall handler function pointer types
+typedef void (*syscall_handler_t)(pid_t, const struct syscall_event *);
+
+// Arrays of function pointers for enter and exit events
+static syscall_handler_t enter_handlers[MAX_SYSCALL_NR];
+static syscall_handler_t exit_handlers[MAX_SYSCALL_NR];
 
 // Array of syscall metadata, indexed by syscall number.
 // This is used to map syscall numbers to their names and argument counts.
@@ -48,8 +60,62 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
     [SYS_openat] = {"openat", 3},
 };
 
-// Callback function that is called every time an event is read from the ring
-// buffer. (syscall events)
+/**
+ * Reads a null-terminated string from the memory of a process.
+ * @param pid The PID of the process to read from.
+ * @param addr The address in the process's memory to read from.
+ * @param buffer The buffer to store the read string.
+ * @param size The maximum size of the buffer.
+ * @return The number of bytes read, or -1 on error.
+ */
+long read_string_from_process(pid_t pid, unsigned long addr, char *buffer, size_t size) {
+    if (size == 0) return 0;
+
+    size_t read_bytes = 0;
+    long word;
+    char *ptr = (char *)&word;
+
+    while (read_bytes < size - 1) {
+        errno = 0;
+        word = ptrace(PTRACE_PEEKDATA, pid, addr + read_bytes, NULL);
+        if (errno != 0) {
+            // Error reading memory, maybe invalid pointer
+            buffer[read_bytes] = '\0';
+            return -1;
+        }
+
+        // Copy the word into the buffer
+        for (size_t i = 0; i < sizeof(long); ++i) {
+            if (read_bytes + i < size - 1) {
+                // Check if we are within the buffer size
+                buffer[read_bytes + i] = ptr[i];
+                if (ptr[i] == '\0') {
+                    return read_bytes + i;
+                }
+            } else {
+                // If we reach the end of the buffer, terminate the string
+                buffer[size - 1] = '\0';
+                return size - 1;
+            }
+        }
+        read_bytes += sizeof(long);
+    }
+
+    // Correctly terminate the string within the allowed size limit
+    buffer[size - 1] = '\0';
+    return size - 1;
+}
+
+
+/**
+ * Event handler for syscall entry events.
+ * This function is called when a syscall entry event is detected.
+ * It looks up the syscall metadata and calls the appropriate handler.
+ * @param ctx The BPF context (unused).
+ * @param data Pointer to the syscall event data.
+ * @param len The length of the data (unused).
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int event_handler(void *ctx __attribute__((unused)), void *data,
                          size_t len __attribute__((unused))) {
     const struct syscall_event *e = data;
@@ -58,29 +124,46 @@ static int event_handler(void *ctx __attribute__((unused)), void *data,
         // If the syscall name is known, print it; otherwise, print
         // "UNKNOWNSYSCALL" because we just don't know! >_<
         if (e->enter.name[0] != '\0') {
-            printf("%-6ld %-16s(", e->enter.syscall_nr, e->enter.name);
-        } else {
-
-            printf("%-6ld UNKNOWNSYSCALL  (", e->enter.syscall_nr);
+            if (e->enter.syscall_nr < MAX_SYSCALL_NR &&
+                enter_handlers[e->enter.syscall_nr]) {
+                enter_handlers[e->enter.syscall_nr](g_target_pid, e);
+            } else {
+                handle_sys_enter_default(g_target_pid, e);
+            }
         }
-
-        for (int i = 0; i < e->enter.num_args; ++i) {
-            printf("0x%lx%s", e->enter.args[i],
-                   (i == e->enter.num_args - 1) ? "" : ", ");
-        }
-        printf(")");
-
-        // We use fflush to ensure the first part of the line is printed
-        // immediately, without waiting for a newline.
-        fflush(stdout);
     } else if (e->mode == EVENT_SYS_EXIT) {
-        printf(" = 0x%lx\n", e->exit.retval);
+        // The same with exit events
+        if (e->enter.syscall_nr < MAX_SYSCALL_NR &&
+            exit_handlers[e->enter.syscall_nr]) {
+            exit_handlers[e->enter.syscall_nr](g_target_pid, e);
+        } else {
+            handle_sys_exit_default(g_target_pid, e);
+        }
     }
-
     return 0;
 }
 
-// Function to load the BPF object file and set up the ring buffer.
+/**
+ * Initializes the syscall handlers to default handlers.
+ * This function sets up the enter and exit handlers for syscalls.
+ * It can be extended to register specific syscall handlers.
+ */
+static void initalize_syscall_handlers(void) {
+    // Initialize syscall handlers to default handlers
+    for (size_t i = 0; i < MAX_SYSCALL_NR; i++) {
+        enter_handlers[i] = handle_sys_enter_default;
+        exit_handlers[i] = handle_sys_exit_default;
+    }
+
+    // Register specific syscall handlers
+    enter_handlers[SYS_openat] = handle_sys_enter_openat;
+}
+
+/**
+ * Initializes the BPF loader by opening the BPF skeleton.
+ * This function prepares the BPF object for loading and attaching.
+ * @return 0 on success, or -1 on failure.
+ */
 int bpf_loader_init(void) {
     g_skel = controller_bpf__open();
     if (!g_skel) {
@@ -88,11 +171,22 @@ int bpf_loader_init(void) {
         return -1;
     }
 
+    // Initialize syscall handlers (function pointers)
+    initalize_syscall_handlers();
+
     return 0;
 }
 
-// Function to load the BPF object and attach it to the target PID.
+/**
+ * Loads the BPF object and attaches it to the target PID.
+ * This function sets up the BPF maps, attaches the programs,
+ * and initializes the ring buffer for event handling.
+ * @param pid The PID of the process to trace.
+ * @return 0 on success, or -1 on failure.
+ */
 int bpf_loader_load_and_attach(pid_t pid) {
+    g_target_pid = pid;
+
     if (!g_skel) {
         fprintf(stderr, "BPF object not initialized.\n");
         return -1;
@@ -140,7 +234,10 @@ int bpf_loader_load_and_attach(pid_t pid) {
     return 0;
 }
 
-// Function to clean up resources allocated by the BPF loader.
+/**
+ * Polls the ring buffer for events.
+ * @return 0 on success, or -1 on failure.
+ */
 int bpf_loader_poll_events(void) {
     if (!g_ring_buf) {
         return -1;
@@ -149,7 +246,10 @@ int bpf_loader_poll_events(void) {
                              100); // Poll for events with a timeout of 100 ms
 }
 
-// Function to clean up resources allocated by the BPF loader.
+/**
+ * Cleans up the BPF resources.
+ * This function frees the ring buffer and destroys the BPF skeleton.
+ */
 void bpf_loader_cleanup(void) {
     if (g_ring_buf) {
         ring_buffer__free(g_ring_buf);
