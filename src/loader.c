@@ -1,14 +1,15 @@
 // src/loader.c
 
+#define _GNU_SOURCE
 #include "loader.h"
 #include "controller.h"
 #include "controller.skel.h"
 #include "syscalls/syscalls.h"
 #include <bpf/libbpf.h>
 #include <stdio.h>
-#include <errno.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <sys/uio.h>
 
 // This path will be defined by Meson during compilation,
 // pointing to the compiled BPF object file.
@@ -69,41 +70,28 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
  * @return The number of bytes read, or -1 on error.
  */
 long read_string_from_process(pid_t pid, unsigned long addr, char *buffer, size_t size) {
-    if (size == 0) return 0;
+    struct iovec local_iov = {
+        .iov_base = buffer,
+        .iov_len = size
+    };
+    struct iovec remote_iov = {
+        .iov_base = (void *)addr,
+        .iov_len = size
+    };
+    ssize_t bytes_read = process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0);
 
-    size_t read_bytes = 0;
-    long word;
-    char *ptr = (char *)&word;
-
-    while (read_bytes < size - 1) {
-        errno = 0;
-        word = ptrace(PTRACE_PEEKDATA, pid, addr + read_bytes, NULL);
-        if (errno != 0) {
-            // Error reading memory, maybe invalid pointer
-            buffer[read_bytes] = '\0';
-            return -1;
-        }
-
-        // Copy the word into the buffer
-        for (size_t i = 0; i < sizeof(long); ++i) {
-            if (read_bytes + i < size - 1) {
-                // Check if we are within the buffer size
-                buffer[read_bytes + i] = ptr[i];
-                if (ptr[i] == '\0') {
-                    return read_bytes + i;
-                }
-            } else {
-                // If we reach the end of the buffer, terminate the string
-                buffer[size - 1] = '\0';
-                return size - 1;
-            }
-        }
-        read_bytes += sizeof(long);
+    if (bytes_read < 0) {
+        return -1;
+    }
+    if ((size_t)bytes_read < size) {
+        // Ensure null-termination even if the string is shorter than the buffer
+        buffer[bytes_read] = '\0';
+    } else {
+        // If the buffer is full, ensure it is null-terminated
+        buffer[size - 1] = '\0'; 
     }
 
-    // Correctly terminate the string within the allowed size limit
-    buffer[size - 1] = '\0';
-    return size - 1;
+    return bytes_read;
 }
 
 
