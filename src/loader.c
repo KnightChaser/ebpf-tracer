@@ -4,6 +4,7 @@
 #include "loader.h"
 #include "controller.h"
 #include "controller.skel.h"
+#include "syscall_table.h"
 #include "syscalls/syscalls.h"
 #include <bpf/libbpf.h>
 #include <stdio.h>
@@ -22,13 +23,6 @@
 static struct controller_bpf *g_skel = NULL;
 static struct ring_buffer *g_ring_buf = NULL;
 static pid_t g_target_pid = -1; // Store the child PID
-
-// Declare syscall handler function pointer types
-typedef void (*syscall_handler_t)(pid_t, const struct syscall_event *);
-
-// Arrays of function pointers for enter and exit events
-static syscall_handler_t enter_handlers[MAX_SYSCALL_NR];
-static syscall_handler_t exit_handlers[MAX_SYSCALL_NR];
 
 // Array of syscall metadata, indexed by syscall number.
 // This is used to map syscall numbers to their names and argument counts.
@@ -126,23 +120,6 @@ static int event_handler(void *ctx __attribute__((unused)), void *data,
 }
 
 /**
- * Initializes the syscall handlers to default handlers.
- * This function sets up the enter and exit handlers for syscalls.
- * It can be extended to register specific syscall handlers.
- */
-static void initalize_syscall_handlers(void) {
-    // Initialize syscall handlers to default handlers
-    for (size_t i = 0; i < MAX_SYSCALL_NR; i++) {
-        enter_handlers[i] = handle_sys_enter_default;
-        exit_handlers[i] = handle_sys_exit_default;
-    }
-
-    // Register specific syscall handlers
-    enter_handlers[SYS_openat] = handle_sys_enter_openat;
-    exit_handlers[SYS_openat] = handle_sys_exit_openat;
-}
-
-/**
  * Initializes the BPF loader by opening the BPF skeleton.
  * This function prepares the BPF object for loading and attaching.
  * @return 0 on success, or -1 on failure.
@@ -155,7 +132,7 @@ int bpf_loader_init(void) {
     }
 
     // Initialize syscall handlers (function pointers)
-    initalize_syscall_handlers();
+    syscall_table_init();
 
     return 0;
 }

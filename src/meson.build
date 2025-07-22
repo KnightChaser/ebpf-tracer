@@ -42,10 +42,15 @@ syscall_sources = files(
   'syscalls/default.c',
   'syscalls/openat.c',
 )
+common_sources = [
+  'loader.c',
+  'syscall_table.c',
+  syscall_sources,
+]
 
 executable(
   'ebpftracer',
-  sources: ['main.c', 'loader.c', bpf_skel_h, syscall_sources],
+  sources: ['main.c', bpf_skel_h, common_sources],
   dependencies: libbpf_dep,
   install: true,
 )

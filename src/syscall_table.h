@@ -1,0 +1,22 @@
+// src/syscall_table.h
+#ifndef SYSCALL_TABLE_H
+#define SYSCALL_TABLE_H
+
+#include "controller.h"
+#include <sys/types.h>
+
+typedef void (*syscall_handler_t)(pid_t, const struct syscall_event *);
+
+extern syscall_handler_t enter_handlers[];
+extern syscall_handler_t exit_handlers[];
+
+void syscall_table_init(void);
+
+// one-liner macro for syscall handler registration
+#define REGISTER_SYSCALL_HANDLER(sysno, enter_handler, exit_handler)           \
+    do {                                                                       \
+        enter_handlers[sysno] = enter_handler;                                 \
+        exit_handlers[sysno] = exit_handler;                                   \
+    } while (0)
+
+#endif // SYSCALL_TABLE_H
