@@ -2,8 +2,11 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 // Define a structure to hold flag names and their corresponding values
 struct flag_name {
@@ -46,6 +49,47 @@ static inline char *flags_to_str(long flags, const struct flag_name *table,
     }
 
     return buf;
+}
+
+/**
+ * Get the real path(absolute) of a file descriptor in a process.
+ *
+ * @param pid The process ID.
+ * @param fd The file descriptor.
+ * @param buf The buffer to store the resolved path.
+ * @param bufsz The size of the buffer.
+ * @return The number of bytes written to the buffer, or -1 on error.
+ */
+static inline ssize_t fd_realpath(pid_t pid, int fd, char *buf, size_t bufsz) {
+    char link[PATH_MAX];
+    int n = snprintf(link, sizeof(link), "/proc/%d/fd/%d", pid, fd);
+    if (n < 0 || (size_t)n >= sizeof(link)) {
+        return -1;
+    }
+    ssize_t bytes_read = readlink(link, buf, bufsz - 1);
+    if (bytes_read >= 0) {
+        // Null-terminate the buffer
+        buf[bytes_read] = '\0';
+    }
+
+    return bytes_read;
+}
+
+/**
+ * Print the file descriptor path in a human-readable format on the console
+ * directly.
+ *
+ * @param pid The process ID.
+ * @param fd The file descriptor.
+ * @param indent The number of spaces to indent the output.
+ */
+static inline void print_fd_path(pid_t pid, int fd, int indent) {
+    char p[PATH_MAX];
+    if (fd_realpath(pid, fd, p, sizeof(p)) < 0) {
+        // Failed to resolve the path
+        return;
+    }
+    printf("%*spath => %s\n", indent, "", p);
 }
 
 #endif // UTILS_H
