@@ -3,6 +3,7 @@
 #include "syscalls.h"
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 /**
  * Handle the entry of the openat syscall.
@@ -23,7 +24,8 @@ void handle_sys_enter_openat(pid_t pid, const struct syscall_event *e) {
 
     // Arg 1: pathname (a pointer)
     char pathname[256];
-    if (read_string_from_process(pid, e->enter.args[1], pathname, sizeof(pathname)) > 0) {
+    if (read_string_from_process(pid, e->enter.args[1], pathname,
+                                 sizeof(pathname)) > 0) {
         printf("\"%s\", ", pathname);
     } else {
         printf("0x%lx, ", e->enter.args[1]); // Fallback to raw pointer
@@ -31,7 +33,7 @@ void handle_sys_enter_openat(pid_t pid, const struct syscall_event *e) {
 
     // Arg 2: flags
     printf("0x%lx", e->enter.args[2]);
-    
+
     // TODO: A more advanced version would decode the flags (O_RDONLY, etc.)
 
     printf(")");
