@@ -60,7 +60,7 @@ int tracepoint__sys_enter(struct trace_event_raw_sys_enter *ctx) {
     }
 
     e->mode = EVENT_SYS_ENTER;
-    e->enter.syscall_nr = id;
+    e->syscall_nr = id;
 
     // Fetch metadata from the static lookup table.
     bpf_probe_read_kernel_str(e->enter.name, sizeof(e->enter.name), info->name);
@@ -110,6 +110,7 @@ int tracepoint__sys_exit(struct trace_event_raw_sys_exit *ctx) {
     // Populate the event structure for a SYS_EXIT event and prepare
     // information to be sent to user-space.
     e->mode = EVENT_SYS_EXIT;
+    e->syscall_nr = syscall_nr;
     e->exit.retval = ctx->ret;
 
     // Submit the event to the ring buffer

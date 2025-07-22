@@ -69,16 +69,12 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
  * @param size The maximum size of the buffer.
  * @return The number of bytes read, or -1 on error.
  */
-long read_string_from_process(pid_t pid, unsigned long addr, char *buffer, size_t size) {
-    struct iovec local_iov = {
-        .iov_base = buffer,
-        .iov_len = size
-    };
-    struct iovec remote_iov = {
-        .iov_base = (void *)addr,
-        .iov_len = size
-    };
-    ssize_t bytes_read = process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0);
+long read_string_from_process(pid_t pid, unsigned long addr, char *buffer,
+                              size_t size) {
+    struct iovec local_iov = {.iov_base = buffer, .iov_len = size};
+    struct iovec remote_iov = {.iov_base = (void *)addr, .iov_len = size};
+    ssize_t bytes_read =
+        process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0);
 
     if (bytes_read < 0) {
         return -1;
@@ -88,12 +84,11 @@ long read_string_from_process(pid_t pid, unsigned long addr, char *buffer, size_
         buffer[bytes_read] = '\0';
     } else {
         // If the buffer is full, ensure it is null-terminated
-        buffer[size - 1] = '\0'; 
+        buffer[size - 1] = '\0';
     }
 
     return bytes_read;
 }
-
 
 /**
  * Event handler for syscall entry events.
@@ -112,18 +107,17 @@ static int event_handler(void *ctx __attribute__((unused)), void *data,
         // If the syscall name is known, print it; otherwise, print
         // "UNKNOWNSYSCALL" because we just don't know! >_<
         if (e->enter.name[0] != '\0') {
-            if (e->enter.syscall_nr < MAX_SYSCALL_NR &&
-                enter_handlers[e->enter.syscall_nr]) {
-                enter_handlers[e->enter.syscall_nr](g_target_pid, e);
+            if (e->syscall_nr < MAX_SYSCALL_NR &&
+                enter_handlers[e->syscall_nr]) {
+                enter_handlers[e->syscall_nr](g_target_pid, e);
             } else {
                 handle_sys_enter_default(g_target_pid, e);
             }
         }
     } else if (e->mode == EVENT_SYS_EXIT) {
         // The same with exit events
-        if (e->enter.syscall_nr < MAX_SYSCALL_NR &&
-            exit_handlers[e->enter.syscall_nr]) {
-            exit_handlers[e->enter.syscall_nr](g_target_pid, e);
+        if (e->syscall_nr < MAX_SYSCALL_NR && exit_handlers[e->syscall_nr]) {
+            exit_handlers[e->syscall_nr](g_target_pid, e);
         } else {
             handle_sys_exit_default(g_target_pid, e);
         }
@@ -145,6 +139,7 @@ static void initalize_syscall_handlers(void) {
 
     // Register specific syscall handlers
     enter_handlers[SYS_openat] = handle_sys_enter_openat;
+    exit_handlers[SYS_openat] = handle_sys_exit_openat;
 }
 
 /**

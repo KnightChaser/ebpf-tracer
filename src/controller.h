@@ -19,13 +19,14 @@ typedef enum { EVENT_SYS_ENTER, EVENT_SYS_EXIT } event_mode;
 struct syscall_event {
     // The 'mode' tells us which part of the union is valid.
     event_mode mode;
+    long syscall_nr;
 
     union {
+
         // Data for the ENTER event
         struct {
             char name[32];
             int num_args;
-            long syscall_nr;
             // Store arguments as raw pointers/values
             unsigned long args[MAX_SYSCALL_ARGS];
         } enter;

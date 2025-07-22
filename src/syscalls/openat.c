@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // Define the flag names for openat syscall
 static const struct flag_name open_flags[] = {
@@ -25,7 +26,7 @@ static const struct flag_name open_flags[] = {
  * @param e The syscall event containing the syscall information.
  */
 void handle_sys_enter_openat(pid_t pid, const struct syscall_event *e) {
-    printf("%-6ld %-16s(", e->enter.syscall_nr, e->enter.name);
+    printf("%-6ld %-16s(", e->syscall_nr, e->enter.name);
 
     // dirfd
     int dirfd = e->enter.args[0];
@@ -84,4 +85,26 @@ void handle_sys_enter_openat(pid_t pid, const struct syscall_event *e) {
 
     printf(")");
     fflush(stdout);
+}
+
+void handle_sys_exit_openat(pid_t pid, const struct syscall_event *e) {
+    printf(" = 0x%lx\n", e->exit.retval);
+    if (e->exit.retval >= 0) {
+        // NOTE: If retval is positive, it means the syscall was successful and
+        // got a valid file descriptor that can be resolved to a path via
+        // readlink.
+        char linkpath[256];
+        char resolved[256];
+        snprintf(linkpath, sizeof(linkpath), "/proc/%d/fd/%ld", pid,
+                 e->exit.retval);
+        ssize_t n = readlink(linkpath, resolved, sizeof(resolved) - 1);
+        if (n >= 0) {
+            resolved[n] = '\0'; // Null-terminate the string
+            printf("                       path => %s\n", resolved);
+        } else {
+            perror("readlink");
+        }
+    } else {
+        printf("\n");
+    }
 }
