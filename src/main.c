@@ -16,8 +16,8 @@ void fatal(const char *message) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <path_to_program>\n", argv[0]);
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <prog> [args...]\n", argv[0]);
         return 1;
     }
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
         int status;
         waitpid(pid, &status, WUNTRACED);
         printf("Tracer: Child process stopped, attaching BPF program...\n");
-        
+
         // Load and attach eBPF program
         bpf_loader_init();
         if (bpf_loader_load_and_attach(pid) != 0) {

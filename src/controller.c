@@ -75,7 +75,7 @@ int tracepoint__sys_enter(struct trace_event_raw_sys_enter *ctx) {
     }
     e->enter.num_args = num_args;
 
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < MAX_SYSCALL_ARGS; i++) {
         if (i < num_args) {
             e->enter.args[i] = BPF_CORE_READ(ctx, args[i]);

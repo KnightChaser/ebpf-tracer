@@ -90,8 +90,7 @@ void handle_sys_enter_openat(pid_t pid, const struct syscall_event *e) {
 void handle_sys_exit_openat(pid_t pid, const struct syscall_event *e) {
     printf(" = 0x%lx\n", e->exit.retval);
     if (e->exit.retval >= 0) {
-        print_fd_path(pid, e->exit.retval, 39);
-
+        print_fd_path(pid, e->exit.retval, 24);
     } else {
         printf("\n");
     }
