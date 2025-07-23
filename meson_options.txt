@@ -1,0 +1,6 @@
+option(
+  'skip_bpf',
+  type: 'boolean',
+  value: false,
+  description: 'Skip generating/compiling eBPF artifacts (for CI/CodeQL)',
+)

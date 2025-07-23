@@ -45,9 +45,9 @@ jobs:
           # queries: +security-and-quality
 
       # ---- manual build so CodeQL can trace it ----
-      - name: Build project (Meson)
+      - name: Build project (Meson, stuf BPF)
         run: |
-          meson setup builddir --native-file=clang.ini
+          meson setup builddir --native-file=clang.ini -Dskip_bpf=true
           meson compile -C builddir
 
       # ---- analyze ----

@@ -1,52 +1,76 @@
 # src/meson.build
 
 # dependencies
-bpftool = find_program('bpftool', required: true)
 libbpf_dep = dependency('libbpf', required: true)
+skip_bpf = get_option('skip_bpf')
 
-# 1. Generate vmlinlux.h using bpftool
-vmlinux_h = custom_target(
-  'vmlinux.h',
-  output: 'vmlinux.h',
-  command: [bpftool, 'btf', 'dump', 'file', '/sys/kernel/btf/vmlinux', 'format', 'c'],
-  capture: true,
-)
+if skip_bpf
+  # stub (for CI/CD or CodeQL which doesn't support eBPF)
+  vmlinux_h = custom_target(
+    'vmlinux.h',
+    output: 'vmlinux.h',
+    command: ['bash', '-c', 'echo "/* stub vmlinux.h */"'],
+    capture: true,
+  )
 
-# 2. Compile the BPF C code into a BPF object file
-bpf_obj = custom_target(
-  'bpf_obj',
-  input: 'controller.c',
-  output: 'controller.bpf.o',
-  command: [
-    'clang',
-    '-g',
-    '-O2',
-    '-target', 'bpf',
-    '-c', '@INPUT@',
-    '-o', '@OUTPUT@',
-  ],
-  depends: vmlinux_h,
-)
+  bpf_obj = custom_target(
+    'controller.bpf.o',
+    output: 'controller.bpf.o',
+    command: ['bash', '-c', 'true > controller.bpf.o'],
+  )
 
-# 3. Generate the BPF skeleton header from the object file
-bpf_skel_h = custom_target(
-  'bpf_skeleton',
-  input: bpf_obj,
-  output: 'controller.skel.h',
-  command: [bpftool, 'gen', 'skeleton', '@INPUT@'],
-  capture: true,
-)
+  bpf_skel_h = custom_target(
+    'controller.skel.h',
+    input: bpf_obj,
+    output: 'controller.skel.h',
+    command: ['bash', '-c', 'echo "/* stub skel */"'],
+    capture: true,
+  )
+else
+  # real eBPF build
+  bpftool = find_program('bpftool', required: true)
+
+  # 1. Generate vmlinux.h using bpftool
+  vmlinux_h = custom_target(
+    'vmlinux.h',
+    output: 'vmlinux.h',
+    command: [bpftool, 'btf', 'dump', 'file', '/sys/kernel/btf/vmlinux', 'format', 'c'],
+    capture: true,
+  )
+
+  # 2. Compile the BPF C code into a BPF object file
+  bpf_obj = custom_target(
+    'controller.bpf.o',
+    input: 'controller.c',
+    output: 'controller.bpf.o',
+    command: [
+      'clang',
+      '-g',
+      '-O2',
+      '-target', 'bpf',
+      '-c', '@INPUT@',
+      '-o', '@OUTPUT@',
+    ],
+    depends: vmlinux_h,
+  )
+
+  # 3. Generate the BPF skeleton header from the object file
+  bpf_skel_h = custom_target(
+    'controller.skel.h',
+    input: bpf_obj,
+    output: 'controller.skel.h',
+    command: [bpftool, 'gen', 'skeleton', '@INPUT@'],
+    capture: true,
+  )
+endif
 
 # 4. Compile the main user-space application
 syscall_sources = files(
   'syscalls/default.c',
   'syscalls/openat.c',
 )
-common_sources = [
-  'loader.c',
-  'syscall_table.c',
-  syscall_sources,
-]
+
+common_sources = ['loader.c', 'syscall_table.c', syscall_sources]
 
 executable(
   'ebpftracer',
