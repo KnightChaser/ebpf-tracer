@@ -31,4 +31,7 @@ void syscall_table_init(void) {
                              open_exit_dispatch);
 #endif
 #endif
+
+    // close(2)
+    REGISTER_SYSCALL_HANDLER(SYS_close, handle_close_enter, handle_close_exit);
 }

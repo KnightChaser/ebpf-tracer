@@ -66,6 +66,7 @@ endif
 
 # 4. Compile the main user-space application
 handlers = files(
+  'syscalls/handlers/handle_close.c',
   'syscalls/handlers/handle_open.c',
   'syscalls/handlers/handle_openat.c',
   'syscalls/handlers/handle_openat2.c',
@@ -73,6 +74,7 @@ handlers = files(
 
 syscall_sources = files(
   'syscalls/default.c',
+  'syscalls/handlers/handle_close.h',
   'syscalls/handlers/handle_open.h',
   'syscalls/handlers/handle_openat.h',
   'syscalls/handlers/handle_openat2.h',
