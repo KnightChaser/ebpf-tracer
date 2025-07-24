@@ -24,3 +24,6 @@ void syscall_table_init(void);
 // Check if a specific syscall is registered
 #define IS_SYSCALL_REGISTERED(sysno)                                           \
     (enter_handlers[sysno] != NULL && exit_handlers[sysno] != NULL)
+
+// Check if a specific syscall is supported on the machine
+#define IS_SYSCALL_SUPPORTED(sysno) (sysno < MAX_SYSCALL_NR)

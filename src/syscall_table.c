@@ -26,10 +26,10 @@ void syscall_table_init(void) {
     REGISTER_SYSCALL_HANDLER(SYS_openat, open_enter_dispatch,
                              open_exit_dispatch);
 #ifdef SYS_openat2
-#if SYS_openat2 < SYSCALL_TABLE_SIZE
-    REGISTER_SYSCALL_HANDLER(SYS_openat2, open_enter_dispatch,
-                             open_exit_dispatch);
-#endif
+    if (IS_SYSCALL_SUPPORTED(SYS_openat2)) {
+        REGISTER_SYSCALL_HANDLER(SYS_openat2, open_enter_dispatch,
+                                 open_exit_dispatch);
+    }
 #endif
 
     // close(2)
