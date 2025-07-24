@@ -5,6 +5,7 @@
 #include "controller.h"
 #include "controller.skel.h"
 #include "syscall_table.h"
+#include "syscalls/fd_cache.h"
 #include "syscalls/syscalls.h"
 #include <bpf/libbpf.h>
 #include <stdio.h>
@@ -134,6 +135,9 @@ int bpf_loader_init(void) {
     // Initialize syscall handlers (function pointers)
     syscall_table_init();
 
+    // Initialize the file descriptor cache
+    fd_cache_init();
+
     return 0;
 }
 
@@ -220,6 +224,9 @@ void bpf_loader_cleanup(void) {
         controller_bpf__destroy(g_skel);
         g_skel = NULL;
     }
+
+    // Clean up syscall handlers
+    fd_cache_cleanup();
 
     printf("BPF resources cleaned up.\n");
 }

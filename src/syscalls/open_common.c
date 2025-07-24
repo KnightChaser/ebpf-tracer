@@ -2,6 +2,7 @@
 
 #define _GNU_SOURCE
 #include "open_common.h"
+#include "fd_cache.h"
 #include "handlers/handle_open.h"
 #include "handlers/handle_openat.h"
 #include "handlers/handle_openat2.h"
@@ -98,9 +99,19 @@ int fetch_open_args(pid_t pid,                     // [in]
  * @param e The syscall_event structure containing syscall information.
  */
 void print_open_exit(pid_t pid, const struct syscall_event *e) {
-    printf("(open[at[2]]) = 0x%lx\n", e->exit.retval);
+    printf("\n = 0x%lx (open[at[2]])\n", e->exit.retval);
     if (e->exit.retval >= 0) {
-        print_fd_path(pid, (int)e->exit.retval, 23);
+        char absolutePath[PATH_MAX] = {0};
+        int fd = (int)e->exit.retval;
+        if (fd_realpath(pid, fd, absolutePath, sizeof(absolutePath)) >= 0) {
+            printf(" => path: %s\n", absolutePath);
+
+            // cache it
+            absolutePath[sizeof(absolutePath) - 1] = '\0';
+            fd_cache_set(fd, absolutePath);
+        } else {
+            printf(" = <error resolving path>\n");
+        }
     } else {
         printf(" = -1 (errno: %ld)\n", -e->exit.retval);
     }

@@ -1,6 +1,7 @@
 // src/syscalls/handlers/handle_close.c
 #define _GNU_SOURCE
 #include "../../controller.h"
+#include "../fd_cache.h"
 #include "../syscalls.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -15,7 +16,10 @@ void handle_close_enter(pid_t pid __attribute__((unused)),
                         const struct syscall_event *e) {
     int fd = (int)e->enter.args[0];
     printf("%-6ld %-16s(%d)", e->syscall_nr, e->enter.name, fd);
-    fflush(stdout);
+    const char *path = fd_cache_get(fd);
+    if (path) {
+        printf("\n => path: %s\n", path);
+    }
 }
 
 /**
