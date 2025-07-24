@@ -20,3 +20,7 @@ void syscall_table_init(void);
     } while (0)
 
 #endif // SYSCALL_TABLE_H
+
+// Check if a specific syscall is registered
+#define IS_SYSCALL_REGISTERED(sysno)                                           \
+    (enter_handlers[sysno] != NULL && exit_handlers[sysno] != NULL)

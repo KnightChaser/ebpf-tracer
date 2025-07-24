@@ -2,7 +2,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <limits.h>
+#include <fcntl.h>
+#include <linux/limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>

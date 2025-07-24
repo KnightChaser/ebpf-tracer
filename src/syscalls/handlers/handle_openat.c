@@ -1,13 +1,13 @@
-// src/syscalls/openat.c
+// src/syscalls/handlers/handle_openat.c
 #define _GNU_SOURCE
-#include "syscalls.h"
-#include "utils.h"
+#include "../open_common.h"
 #include <fcntl.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-// Define the flag names for openat syscall
+/**
+ * Converts flags to a string representation.
+ * This function takes a set of flags and converts them into a human-readable
+ * string format, using a predefined array of flag names.
+ */
 static const struct flag_name open_flags[] = {
     {O_CREAT, "O_CREAT"},       {O_EXCL, "O_EXCL"},
     {O_NOCTTY, "O_NOCTTY"},     {O_TRUNC, "O_TRUNC"},
@@ -15,17 +15,17 @@ static const struct flag_name open_flags[] = {
     {O_DSYNC, "O_DSYNC"},       {O_SYNC, "O_SYNC"},
     {O_RSYNC, "O_RSYNC"},       {O_DIRECTORY, "O_DIRECTORY"},
     {O_NOFOLLOW, "O_NOFOLLOW"}, {O_CLOEXEC, "O_CLOEXEC"},
-    {O_PATH, "O_PATH"},         {O_TMPFILE, "O_TMPFILE"},
     // NOTE: may be added if needed >_<
 };
 
 /**
- * Handle the entry of the openat syscall.
- * It prints the syscall number, name, and arguments in a human-readable format.
- * @param pid The PID of the process making the syscall.
- * @param e The syscall event containing the syscall information.
+ * Handles the entry of the openat syscall.
+ * This function prints the syscall arguments in a human-readable format.
+ *
+ * @param pid The process ID.
+ * @param e The syscall event containing the arguments.
  */
-void handle_sys_enter_openat(pid_t pid, const struct syscall_event *e) {
+void handle_openat_enter(pid_t pid, const struct syscall_event *e) {
     printf("%-6ld %-16s(", e->syscall_nr, e->enter.name);
 
     // dirfd
@@ -87,11 +87,12 @@ void handle_sys_enter_openat(pid_t pid, const struct syscall_event *e) {
     fflush(stdout);
 }
 
-void handle_sys_exit_openat(pid_t pid, const struct syscall_event *e) {
-    printf(" = 0x%lx\n", e->exit.retval);
-    if (e->exit.retval >= 0) {
-        print_fd_path(pid, e->exit.retval, 24);
-    } else {
-        printf("\n");
-    }
+/**
+ * Handles the entry of the openat syscall.
+ *
+ * @param id The process ID.
+ * @param e The syscall event containing the arguments.
+ */
+void handle_openat_exit(pid_t id, const struct syscall_event *e) {
+    print_open_exit(id, e);
 }

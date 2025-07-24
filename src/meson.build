@@ -65,12 +65,23 @@ else
 endif
 
 # 4. Compile the main user-space application
-syscall_sources = files(
-  'syscalls/default.c',
-  'syscalls/openat.c',
+handlers = files(
+  'syscalls/handlers/handle_open.c',
+  'syscalls/handlers/handle_openat.c',
+  'syscalls/handlers/handle_openat2.c',
 )
 
-common_sources = ['loader.c', 'syscall_table.c', syscall_sources]
+syscall_sources = files(
+  'syscalls/default.c',
+  'syscalls/handlers/handle_open.h',
+  'syscalls/handlers/handle_openat.h',
+  'syscalls/handlers/handle_openat2.h',
+  'syscalls/open_common.c',
+  'syscalls/open_common.h',
+  'syscalls/utils.h',
+) + handlers
+
+common_sources = ['loader.c', 'syscall_table.c'] + syscall_sources
 
 executable(
   'ebpftracer',
