@@ -67,6 +67,14 @@ static inline ssize_t fd_realpath(pid_t pid, int fd, char *buf, size_t bufsz) {
     if (n < 0 || (size_t)n >= sizeof(link)) {
         return -1;
     }
+
+    // NOTE: readlink requires either one of the following featuer test macro
+    // requirements for glibc
+    // - _BSD_SOURCE
+    // - _XOPEN_SOURCE >= 500
+    // - _XOPEN_SOURCE && _XOPEN_SOURCE_EXTENDED
+    // - _POSIX_C_SOURCE >= 200112L
+    // This project uses "-D_POSIX_C_SOURCE=200809L" option
     ssize_t bytes_read = readlink(link, buf, bufsz - 1);
     if (bytes_read >= 0) {
         // Null-terminate the buffer
