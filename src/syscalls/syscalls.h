@@ -13,7 +13,14 @@ void handle_sys_enter_default(pid_t pid, const struct syscall_event *e);
 void handle_sys_exit_default(pid_t pid, const struct syscall_event *e);
 
 // Specific Syscall Handlers
-#include "handlers/handle_close.h"
 #include "handlers/handle_open.h"
 #include "handlers/handle_openat.h"
 #include "handlers/handle_openat2.h"
+
+#include "handlers/handle_close.h"
+
+#include "handlers/handle_dup.h"
+#include "handlers/handle_dup2.h"
+#ifdef SYS_dup3
+#include "handlers/handle_dup3.h"
+#endif

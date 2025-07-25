@@ -34,4 +34,13 @@ void syscall_table_init(void) {
 
     // close(2)
     REGISTER_SYSCALL_HANDLER(SYS_close, handle_close_enter, handle_close_exit);
+
+    // dup/dup2/dup3
+    REGISTER_SYSCALL_HANDLER(SYS_dup, handle_dup_enter, handle_dup_exit);
+    REGISTER_SYSCALL_HANDLER(SYS_dup2, handle_dup2_enter, handle_dup2_exit);
+#ifdef SYS_dup3
+    if (IS_SYSCALL_SUPPORTED(SYS_dup3)) {
+        REGISTER_SYSCALL_HANDLER(SYS_dup3, handle_dup3_enter, handle_dup3_exit);
+    }
+#endif
 }
