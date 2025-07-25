@@ -221,6 +221,8 @@ void print_open_exit(pid_t pid __attribute__((unused)),
         const char *path = fd_cache_get((int)ret);
         if (path) {
             printf(" => path: %s", path);
+        } else {
+            printf(" => path: <unknown>\n");
         }
     }
     printf("\n");
@@ -272,6 +274,20 @@ void open_enter_dispatch(pid_t pid, const struct syscall_event *e) {
  * @param e The syscall_event structure containing syscall information.
  */
 void open_exit_dispatch(pid_t pid, const struct syscall_event *e) {
+
+    // NOTE: pop the path we stashed, and if the syscall succeeded, cache it
+    // to the fd_cache too. Maybe other syscalls such as dup() or close() use.
+    {
+        long ret = e->exit.retval;
+        char *abs = pending_pop();
+        if (ret >= 0 && abs && *abs) {
+            fd_cache_set((int)ret, abs);
+        }
+        free(abs);
+    }
+
+    // After setting the fd_cache(), we can handle the exit event.
+    // It will eventually call print_open_exit() to print the exit information.
     switch (e->syscall_nr) {
     case SYS_open:
         handle_open_exit(pid, e);
@@ -287,16 +303,5 @@ void open_exit_dispatch(pid_t pid, const struct syscall_event *e) {
                "openat2\n",
                e->syscall_nr);
         handle_sys_exit_default(pid, e);
-    }
-
-    // NOTE: pop the path we stashed, and if the syscall succeeded, cache it
-    // to the fd_cache too. Maybe other syscalls such as dup() or close() use.
-    {
-        long ret = e->exit.retval;
-        char *abs = pending_pop();
-        if (ret >= 0 && abs && *abs) {
-            fd_cache_set((int)ret, abs);
-        }
-        free(abs);
     }
 }
