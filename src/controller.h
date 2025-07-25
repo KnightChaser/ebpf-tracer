@@ -1,7 +1,7 @@
 // src/controller.h
 
-#ifndef CONTROLLER_H
-#define CONTROLLER_H
+#pragma once
+
 // The highest number on x86_64 syscall number... around 334
 #define MAX_SYSCALL_NR 335
 
@@ -43,5 +43,3 @@ struct tracer_syscall_info {
     char name[32];
     int num_args;
 };
-
-#endif // CONTROLLER_H

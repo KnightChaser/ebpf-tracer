@@ -1,6 +1,5 @@
 // src/syscalls/handlers/consts.h
-#ifndef CONSTS_H
-#define CONSTS_H
+#pragma once
 
 #include "../utils.h"
 #include <fcntl.h>
@@ -19,5 +18,3 @@ static const struct flag_name open_flags[] = {
     {O_NOFOLLOW, "O_NOFOLLOW"}, {O_CLOEXEC, "O_CLOEXEC"},
     // NOTE: may be added if needed >_<
 };
-
-#endif // CONSTS_H

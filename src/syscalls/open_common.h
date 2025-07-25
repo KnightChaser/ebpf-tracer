@@ -1,7 +1,5 @@
 // src/syscalls/open_common.h
-
-#ifndef OPEN_COMMON_H
-#define OPEN_COMMON_H
+#pragma once
 
 #include "../controller.h"
 #include "syscalls.h"
@@ -23,5 +21,3 @@ struct open_args {
 int fetch_open_args(pid_t pid, const struct syscall_event *e,
                     struct open_args *out);
 void print_open_exit(pid_t pid, const struct syscall_event *e);
-
-#endif // OPEN_COMMON_H

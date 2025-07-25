@@ -1,6 +1,5 @@
 // src/syscalls/syscalls.h
-#ifndef SYSCALLS_H
-#define SYSCALLS_H
+#pragma once
 
 #include "../controller.h"
 #include <sys/types.h>
@@ -18,5 +17,3 @@ void handle_sys_exit_default(pid_t pid, const struct syscall_event *e);
 #include "handlers/handle_open.h"
 #include "handlers/handle_openat.h"
 #include "handlers/handle_openat2.h"
-
-#endif // SYSCALLS_H

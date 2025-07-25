@@ -1,7 +1,6 @@
 // src/loader.h
 
-#ifndef LOADER_H
-#define LOADER_H
+#pragma once
 
 #include <sys/types.h>
 
@@ -20,5 +19,3 @@ int bpf_loader_poll_events(void);
 
 // Detaches the BPF probes and cleans up resources.
 void bpf_loader_cleanup(void);
-
-#endif // LOADER_H

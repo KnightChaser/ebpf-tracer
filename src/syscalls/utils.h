@@ -1,6 +1,5 @@
 // src/syscalls/utils.h
-#ifndef UTILS_H
-#define UTILS_H
+#pragma once
 
 #include <fcntl.h>
 #include <linux/limits.h>
@@ -100,5 +99,3 @@ static inline void print_fd_path(pid_t pid, int fd, int indent) {
     }
     printf("%*spath => %s\n", indent, "", p);
 }
-
-#endif // UTILS_H

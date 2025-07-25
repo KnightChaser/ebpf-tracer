@@ -1,6 +1,5 @@
 // src/syscalls/fd_cache.h
-#ifndef FD_CACHE
-#define FD_CACHE
+#pragma once
 
 #include <stddef.h>
 
@@ -17,5 +16,3 @@ const char *fd_cache_get(int fd);
 
 // Remove entry for fd, freeing its string
 void fd_cache_remove(int fd);
-
-#endif // FD_CACHE

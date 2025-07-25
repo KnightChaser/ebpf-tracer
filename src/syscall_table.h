@@ -1,6 +1,5 @@
 // src/syscall_table.h
-#ifndef SYSCALL_TABLE_H
-#define SYSCALL_TABLE_H
+#pragma once
 
 #include "controller.h"
 #include <sys/types.h>
@@ -18,8 +17,6 @@ void syscall_table_init(void);
         enter_handlers[sysno] = enter_handler;                                 \
         exit_handlers[sysno] = exit_handler;                                   \
     } while (0)
-
-#endif // SYSCALL_TABLE_H
 
 // Check if a specific syscall is registered
 #define IS_SYSCALL_REGISTERED(sysno)                                           \
