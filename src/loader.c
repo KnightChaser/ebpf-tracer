@@ -58,6 +58,7 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
     [SYS_select] = {"select", 5},
     [SYS_sched_yield] = {"sched_yield", 0},
     [SYS_exit_group] = {"exit_group", 1},
+    [SYS_fcntl] = {"fcntl", 3},
     [SYS_openat] = {"openat", 3},
 };
 

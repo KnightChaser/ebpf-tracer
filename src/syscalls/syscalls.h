@@ -24,3 +24,4 @@ void handle_sys_exit_default(pid_t pid, const struct syscall_event *e);
 #ifdef SYS_dup3
 #include "handlers/handle_dup3.h"
 #endif
+#include "handlers/handle_fcntl.h"
