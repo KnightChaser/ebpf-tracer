@@ -4,6 +4,8 @@
 #include "../controller.h"
 #include "syscalls.h"
 #include "utils.h"
+#include <linux/limits.h>
+#include <unistd.h>
 
 // Public entry points registered in syscall table
 void open_enter_dispatch(pid_t pid, const struct syscall_event *e);
