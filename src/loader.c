@@ -32,6 +32,11 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
     [SYS_write] = {"write", 3},
     [SYS_open] = {"open", 2},
     [SYS_close] = {"close", 1},
+    [SYS_dup] = {"dup", 1},
+    [SYS_dup2] = {"dup2", 2},
+#ifdef SYS_dup3
+    [SYS_dup3] = {"dup3", 3},
+#endif
     [SYS_stat] = {"stat", 2},
     [SYS_fstat] = {"fstat", 2},
     [SYS_lstat] = {"lstat", 2},
