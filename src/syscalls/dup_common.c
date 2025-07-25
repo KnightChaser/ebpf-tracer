@@ -1,6 +1,7 @@
 // src/syscalls/dup_common.c
 #define _GNU_SOURCE
 #include "dup_common.h"
+#include "fd_cache.h"
 #include "handlers/handle_dup.h"
 #include "handlers/handle_dup2.h"
 #include "handlers/handle_dup3.h"
@@ -51,6 +52,9 @@ int fetch_dup_args(pid_t pid __attribute__((unused)), // [in]
 
 /**
  * Dispatches the enter event for dup/dup2/dup3 syscalls.
+ * Since dup system call copies the file descriptor,
+ * their paths are the same. It updates the file descriptor cache
+ * and prints the new file descriptor path, too.
  *
  * @param pid The process ID of the syscall event.
  * @param e The syscall event containing the arguments.
@@ -58,7 +62,18 @@ int fetch_dup_args(pid_t pid __attribute__((unused)), // [in]
 void print_dup_exit(pid_t pid, const struct syscall_event *e) {
     long ret = e->exit.retval;
     printf(" = 0x%lx\n", ret);
+
     if (ret >= 0) {
+        // 1) grab the oldfd so we know what path to duplicate
+        struct dup_args args;
+        if (fetch_dup_args(pid, e, &args) == 0) {
+            const char *oldpath = fd_cache_get(args.oldfd);
+            if (oldpath) {
+                // 2) cache the newfd => same path
+                fd_cache_set((int)ret, oldpath);
+            }
+        }
+        // 3) finally, print it just like any other fd
         print_fd_path(pid, (int)ret, 4);
     }
 }
