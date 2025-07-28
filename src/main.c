@@ -1,5 +1,6 @@
 // src/main.c
 #define _POSIX_SOURCE
+#include "./utils/logger.h"
 #include "loader.h"
 #include <fcntl.h>
 #include <signal.h>
@@ -17,7 +18,7 @@ void fatal(const char *message) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <prog> [args...]\n", argv[0]);
+        log_error("Usage: %s <prog> [args...]", argv[0]);
         return 1;
     }
 
@@ -56,20 +57,22 @@ int main(int argc, char *argv[]) {
         // Wait for the child process to stop
         int status;
         waitpid(pid, &status, WUNTRACED);
-        printf("Tracer: Child process stopped, attaching BPF program...\n");
+        log_info(
+            "Tracer: Child process (PID: %d) stopped, attaching BPF program...",
+            pid);
 
         // Load and attach eBPF program
         bpf_loader_init();
         if (bpf_loader_load_and_attach(pid) != 0) {
-            fprintf(stderr, "Failed to load and attach BPF program.\n");
+            log_error("Failed to load and attach BPF program.");
             kill(pid, SIGKILL);
             bpf_loader_cleanup();
             return 1;
         }
 
         // Continue the child process after attaching the BPF program
-        printf("Tracer: BPF program attached to the child process(PID: %d).\n",
-               pid);
+        log_info("Tracer: BPF program attached to the child process (PID: %d).",
+                 pid);
         kill(pid, SIGCONT);
 
         // Get the trace log
@@ -81,15 +84,18 @@ int main(int argc, char *argv[]) {
 
         // Clean up resources
         bpf_loader_cleanup();
-        printf("Tracer: BPF program detached and resources cleaned up.\n");
+        log_info("Tracer: Child process (PID: %d) exited, resource cleaned up",
+                 pid);
 
         if (WIFEXITED(status)) {
-            printf("Child process exited with status: %d\n",
-                   WEXITSTATUS(status));
+            log_info("Child process exited with status: %d",
+                     WEXITSTATUS(status));
         } else if (WIFSIGNALED(status)) {
-            printf("Child process killed by signal: %d\n", WTERMSIG(status));
+            log_info("Child process killed by signal: %d", WTERMSIG(status));
+        } else if (WIFSTOPPED(status)) {
+            log_info("Child process stopped by signal: %d", WSTOPSIG(status));
         } else {
-            printf("Child process did not exit normally.\n");
+            log_error("Child process exited with unknown status: %d", status);
         }
     }
 

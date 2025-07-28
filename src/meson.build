@@ -94,7 +94,9 @@ syscall_sources = files(
   'syscalls/utils.h',
 ) + handlers
 
-common_sources = ['loader.c', 'syscall_table.c'] + syscall_sources
+utils_sources = files('utils/logger.c')
+
+common_sources = ['loader.c', 'syscall_table.c'] + syscall_sources + utils_sources
 
 executable(
   'ebpftracer',

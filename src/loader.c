@@ -7,6 +7,7 @@
 #include "syscall_table.h"
 #include "syscalls/fd_cache.h"
 #include "syscalls/syscalls.h"
+#include "utils/logger.h"
 #include <bpf/libbpf.h>
 #include <stdio.h>
 #include <string.h>
@@ -158,7 +159,7 @@ int bpf_loader_load_and_attach(pid_t pid) {
     g_target_pid = pid;
 
     if (!g_skel) {
-        fprintf(stderr, "BPF object not initialized.\n");
+        log_error("BPF object not initialized.");
         return -1;
     }
 
@@ -234,5 +235,5 @@ void bpf_loader_cleanup(void) {
     // Clean up syscall handlers
     fd_cache_cleanup();
 
-    printf("BPF resources cleaned up.\n");
+    log_info("BPF resources cleaned up.");
 }
