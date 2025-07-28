@@ -1,5 +1,6 @@
 // src/syscalls/handlers/handle_openat2.c
 #define _GNU_SOURCE
+#include "../../utils/logger.h"
 #include "../open_common.h"
 #include "consts.h"
 #include <fcntl.h>
@@ -33,47 +34,47 @@ void handle_openat2_enter(pid_t pid, const struct syscall_event *e) {
         return;
     }
 
-    printf("%-6ld %-16s(", e->syscall_nr, e->enter.name);
+    // 1. dirfd
+    char argbuf[512] = {0};
+    int off =
+        snprintf(argbuf, sizeof(argbuf),
+                 (oa.dirfd == AT_FDCWD ? "AT_FDCWD, " : "%d, "), oa.dirfd);
 
-    // dirfd
-    if (oa.dirfd == AT_FDCWD)
-        printf("AT_FDCWD, ");
-    else
-        printf("%d, ", oa.dirfd);
+    // 2. path
+    off += snprintf(argbuf + off, sizeof(argbuf) - off, "\"%s\", ", oa.path);
 
-    // path
-    printf("\"%s\", ", oa.path);
+    // 3. flags (for openat2())
+    long fl = oa.flags;
+    const char *acc = (fl & O_ACCMODE) == O_WRONLY ? "O_WRONLY"
+                      : (fl & O_ACCMODE) == O_RDWR ? "O_RDWR"
+                                                   : "O_RDONLY";
+    fl &= ~O_ACCMODE;
 
-    // flags
-    long f = oa.flags;
-    const char *acc = (f & O_ACCMODE) == O_WRONLY ? "O_WRONLY"
-                      : (f & O_ACCMODE) == O_RDWR ? "O_RDWR"
-                                                  : "O_RDONLY";
-    f &= ~O_ACCMODE;
-    printf("%s", acc);
-    if (f) {
-        char buf[256];
-        flags_to_str(f, open_flags, sizeof(open_flags) / sizeof(open_flags[0]),
-                     buf, sizeof(buf));
-        printf("|%s", buf);
+    char flbuf[256] = {0};
+    if (fl) {
+        flags_to_str(fl, open_flags, sizeof(open_flags) / sizeof(open_flags[0]),
+                     flbuf, sizeof(flbuf));
     }
+    off += snprintf(argbuf + off, sizeof(argbuf) - off, "%s%s%s",
+                    acc,                // access mode
+                    (fl ? "|" : ""),    // separator if flags are present
+                    (fl ? flbuf : "")); // flags
 
-    // mode
+    // 4. optional mode (for openat2())
     if (oa.mode != -1) {
-        printf(", 0%lo", oa.mode);
+        off += snprintf(argbuf + off, sizeof(argbuf) - off, ", 0%lo", oa.mode);
     }
 
-    // resolve
+    // 5. optional resolve
     if (oa.resolve != -1) {
-        char buf[256];
+        char resbuf[256] = {0};
         flags_to_str(oa.resolve, resolve_flags,
-                     sizeof(resolve_flags) / sizeof(resolve_flags[0]), buf,
-                     sizeof(buf));
-        printf(", resolve=%s", buf);
+                     sizeof(resolve_flags) / sizeof(resolve_flags[0]), resbuf,
+                     sizeof(resbuf));
+        snprintf(argbuf + off, sizeof(argbuf) - off, ", resolve=%s", resbuf);
     }
 
-    printf(")");
-    fflush(stdout);
+    log_syscall(e->syscall_nr, e->enter.name, argbuf, /*retval=*/0);
 }
 
 /**

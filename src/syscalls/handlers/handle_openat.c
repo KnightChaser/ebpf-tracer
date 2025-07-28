@@ -1,8 +1,10 @@
 // src/syscalls/handlers/handle_openat.c
 #define _GNU_SOURCE
+#include "../../utils/logger.h"
 #include "../open_common.h"
 #include "consts.h"
 #include <fcntl.h>
+#include <linux/limits.h>
 
 /**
  * Handles the entry of the openat syscall.
@@ -12,65 +14,59 @@
  * @param e The syscall event containing the arguments.
  */
 void handle_openat_enter(pid_t pid, const struct syscall_event *e) {
-    printf("%-6ld %-16s(", e->syscall_nr, e->enter.name);
-
-    // dirfd
-    int dirfd = e->enter.args[0];
-    if (dirfd == AT_FDCWD) {
-        printf("AT_FDCWD, ");
-    } else {
-        printf("%d, ", dirfd);
-    }
-
-    // pathname
-    char pathname[256];
-    if (read_string_from_process(pid, e->enter.args[1], pathname,
-                                 sizeof(pathname)) > 0) {
-        printf("\"%s\", ", pathname);
-    } else {
-        printf("0x%lx, ", e->enter.args[1]); // Fallback to raw pointer
-    }
-
-    // flags
+    int dirfd = (int)e->enter.args[0];
     long flags = e->enter.args[2];
-    char flagBuf[256];
-    const char *accmode;
 
+    char path[PATH_MAX] = {0};
+    if (read_string_from_process(pid, e->enter.args[1], path, sizeof(path)) <=
+        0) {
+        snprintf(path, sizeof(path), "0x%lx", e->enter.args[1]);
+    }
+
+    // Compose printable argument list
+    char argbuf[512] = {0};
+
+    // 1. dirfd
+    int offset = snprintf(argbuf, sizeof(argbuf),
+                          (dirfd == AT_FDCWD ? "AT_FDCWD, " : "%d, "), dirfd);
+
+    // 2.pathname
+    offset +=
+        snprintf(argbuf + offset, sizeof(argbuf) - offset, "\"%s\", ", path);
+
+    // 3. flags
+    const char *acc;
     switch (flags & O_ACCMODE) {
-    // Extract access mode
-    case O_RDONLY:
-        accmode = "O_RDONLY";
-        break;
     case O_WRONLY:
-        accmode = "O_WRONLY";
+        acc = "O_WRONLY";
         break;
     case O_RDWR:
-        accmode = "O_RDWR";
+        acc = "O_RDWR";
         break;
+    case O_RDONLY:
     default:
-        accmode = "???";
+        acc = "O_RDONLY";
         break;
     }
-    flags &= ~O_ACCMODE; // Clear access mode from flags
-    printf("%s", accmode);
+    long rest = flags & ~O_ACCMODE;
 
-    if (flags) {
-        flags_to_str(flags, open_flags,
-                     sizeof(open_flags) / sizeof(open_flags[0]), flagBuf,
-                     sizeof(flagBuf));
-        printf("|%s", flagBuf);
+    char flbuf[256] = {0};
+    if (rest) {
+        flags_to_str(rest, open_flags,
+                     sizeof(open_flags) / sizeof(open_flags[0]), flbuf,
+                     sizeof(flbuf));
     }
 
-    // NOTE: openat(dirfd, pathname, flags[, mode])
-    // The mode param is only parsed by the kernel if flags has O_CREAT or
-    // O_TMPFILE. Otherwise that slot is garbage/ignored.
-    if ((e->enter.args[2] & (O_CREAT | O_TMPFILE)) != 0) {
-        mode_t mode = e->enter.args[3];
-        printf(", 0%o", mode);
+    offset += snprintf(argbuf + offset, sizeof(argbuf) - offset, "%s%s%s", acc,
+                       (rest ? "|" : ""), (rest ? flbuf : ""));
+
+    // 4. optional mode (only valid with O_CREAT/O_TMPFILE)
+    if (flags & (O_CREAT | O_TMPFILE)) {
+        mode_t mode = (mode_t)e->enter.args[3];
+        snprintf(argbuf + offset, sizeof(argbuf) - offset, ", 0%o", mode);
     }
 
-    printf(")");
-    fflush(stdout);
+    log_syscall(e->syscall_nr, e->enter.name, argbuf, /*retval=*/0);
 }
 
 /**
