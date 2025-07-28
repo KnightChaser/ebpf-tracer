@@ -16,6 +16,7 @@ void handle_sys_exit_default(pid_t pid, const struct syscall_event *e);
 #include "handlers/handle_open.h"
 #include "handlers/handle_openat.h"
 #include "handlers/handle_openat2.h"
+#include "open_common.h"
 
 #include "handlers/handle_close.h"
 
@@ -24,5 +25,8 @@ void handle_sys_exit_default(pid_t pid, const struct syscall_event *e);
 #ifdef SYS_dup3
 #include "handlers/handle_dup3.h"
 #endif
+
 #include "handlers/handle_fcntl.h"
+
 #include "handlers/handle_read.h"
+#include "read_common.h"

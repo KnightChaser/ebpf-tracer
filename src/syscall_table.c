@@ -1,7 +1,5 @@
 // src/syscall_table.c
 #include "syscall_table.h"
-#include "syscalls/open_common.h"
-#include "syscalls/read_common.h"
 #include "syscalls/syscalls.h"
 #include <stddef.h>
 
