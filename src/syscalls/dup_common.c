@@ -2,10 +2,6 @@
 #define _GNU_SOURCE
 #include "dup_common.h"
 #include "fd_cache.h"
-#include "handlers/handle_dup.h"
-#include "handlers/handle_dup2.h"
-#include "handlers/handle_dup3.h"
-#include "syscalls.h"
 #include "utils.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -75,53 +71,5 @@ void print_dup_exit(pid_t pid, const struct syscall_event *e) {
         }
         // 3) finally, print it just like any other fd
         print_fd_path(pid, (int)ret, 4);
-    }
-}
-
-/**
- * Handles the enter event for dup/dup2/dup3 syscalls.
- *
- * @param pid The process ID of the syscall event.
- * @param e The syscall event containing the arguments.
- */
-void dup_enter_dispatch(pid_t pid, const struct syscall_event *e) {
-    switch (e->syscall_nr) {
-    case SYS_dup:
-        handle_dup_enter(pid, e);
-        break;
-    case SYS_dup2:
-        handle_dup2_enter(pid, e);
-        break;
-#ifdef SYS_dup3
-    case SYS_dup3:
-        handle_dup3_enter(pid, e);
-        break;
-#endif
-    default:
-        handle_sys_enter_default(pid, e);
-    }
-}
-
-/**
- * Handles the exit event for dup/dup2/dup3 syscalls.
- *
- * @param pid The process ID of the syscall event.
- * @param e The syscall event containing the arguments.
- */
-void dup_exit_dispatch(pid_t pid, const struct syscall_event *e) {
-    switch (e->syscall_nr) {
-    case SYS_dup:
-        handle_dup_exit(pid, e);
-        break;
-    case SYS_dup2:
-        handle_dup2_exit(pid, e);
-        break;
-#ifdef SYS_dup3
-    case SYS_dup3:
-        handle_dup3_exit(pid, e);
-        break;
-#endif
-    default:
-        handle_sys_exit_default(pid, e);
     }
 }
