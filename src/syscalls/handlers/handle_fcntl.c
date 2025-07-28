@@ -1,6 +1,7 @@
 // src/syscalls/handlers/handle_fcntl.c
 #define _GNU_SOURCE
 #include "../../controller.h"
+#include "../../utils/logger.h"
 #include "../fd_cache.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -42,45 +43,43 @@ static const char *cmd_to_str(int cmd) {
  */
 void handle_fcntl_enter(pid_t pid __attribute__((unused)),
                         const struct syscall_event *e) {
-    int fd = (int)e->enter.args[0];
-    int cmd = (int)e->enter.args[1];
-    printf("%-6ld %-16s(%d, %s", e->syscall_nr, e->enter.name, fd,
-           cmd_to_str(cmd));
+    const int fd = (int)e->enter.args[0];
+    const int cmd = (int)e->enter.args[1];
+    const long arg = e->enter.args[2];
 
     // If the command is frequently used, we can print additional arguments
+    char argbuf[128];
     switch (cmd) {
-    case F_DUPFD:
-    case F_DUPFD_CLOEXEC:
-    case F_SETFL:
+    case F_DUPFD:         // fallthrough
+    case F_DUPFD_CLOEXEC: // fallthrough
+    case F_SETFL:         // fallthrough
     case F_SETFD:
-        printf(", %ld", e->enter.args[2]);
+        snprintf(argbuf, sizeof argbuf, "%d, %s, 0x%lx", fd, cmd_to_str(cmd),
+                 arg);
         break;
     default:
+        snprintf(argbuf, sizeof argbuf, "%d, %s", fd, cmd_to_str(cmd));
         break;
     }
-    printf(")");
-    fflush(stdout);
+
+    log_syscall(e->syscall_nr, e->enter.name, argbuf, /*retval*/ 0);
 
     // NOTE: If the syscall is for a file descriptor, we can try to resolve its
     // path. In normal case, the file descriptor should be valid, because the
     // user must probe the file after opening (acquiring the file descriptor)
     // the file successfully.
-    if (fd >= 0) {
-        const char *path = fd_cache_get(fd);
-        if (path) {
-            printf("\n => path: %s\n", path);
-        } else {
-            printf("\n");
-        }
+    const char *path = fd_cache_get(fd);
+    if (path) {
+        log_kv("fd_path", "%s", path);
     } else {
-        printf("\n");
+        log_kv("fd_path", "<unknown>");
     }
 }
 
 void handle_fcntl_exit(pid_t pid __attribute__((unused)),
                        const struct syscall_event *e) {
     long ret = e->exit.retval;
-    printf(" = 0x%lx\n", ret);
+    log_ret(ret, "fcntl");
 
     // If the syscall was successful and the command is F_DUPFD or
     // F_DUPFD_CLOEXEC (meaning it duplicated a file descriptor),
