@@ -75,6 +75,7 @@ handlers = files(
   'syscalls/handlers/handle_open.c',
   'syscalls/handlers/handle_openat.c',
   'syscalls/handlers/handle_openat2.c',
+  'syscalls/handlers/handle_read.c',
 )
 
 syscall_sources = files(
@@ -88,6 +89,8 @@ syscall_sources = files(
   'syscalls/handlers/handle_openat2.h',
   'syscalls/open_common.c',
   'syscalls/open_common.h',
+  'syscalls/read_common.c',
+  'syscalls/read_common.h',
   'syscalls/utils.h',
 ) + handlers
 
