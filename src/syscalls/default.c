@@ -1,4 +1,5 @@
 // src/syscalls/default.c
+#include "../utils/logger.h"
 #include "syscalls.h"
 #include <stdio.h>
 
@@ -32,5 +33,5 @@ void handle_sys_enter_default(pid_t pid __attribute__((unused)),
  */
 void handle_sys_exit_default(pid_t pid __attribute__((unused)),
                              const struct syscall_event *e) {
-    printf(" = 0x%lx\n", e->exit.retval);
+    log_kv("UNKNOWNSYSCALL", "0x%lx", e->exit.retval);
 }
