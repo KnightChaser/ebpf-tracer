@@ -231,3 +231,44 @@ void log_kv(const char *key, const char *fmt, ...) {
     va_end(ap);
     putchar('\n');
 }
+
+/**
+ * Logs a hexdump of the provided buffer.
+ *
+ * @param indent The indentation level for the hexdump.
+ * @param vbuf The buffer to log.
+ * @param len The length of the buffer.
+ */
+void log_hexdump(unsigned indent, const void *vbuf, size_t len) {
+    if (g_quiet || LOG_SYSCALL < g_min_level || len == 0) {
+        return;
+    }
+
+    const unsigned char *buf = vbuf;
+    const char *R = get_color_ansi_code(COLOR_RESET);
+    const char *G = get_color_ansi_code(COLOR_GRAY);
+    // const char *B = get_color_ansi_code(COLOR_BOLD); // yet unused :)
+
+    for (size_t i = 0; i < len; i += 16) {
+        // left margin + offset
+        printf("%*s%s%04zx%s: ", indent, "", G, i, R);
+
+        // hex bytes
+        for (size_t j = 0; j < 16; ++j) {
+            if (i + j < len)
+                printf("%02x ", buf[i + j]);
+            else
+                printf("   "); // padding
+            if (j == 7)
+                putchar(' ');
+        }
+
+        // ASCII bar (print ASCII representation if possible)
+        putchar('|');
+        for (size_t j = 0; j < 16 && i + j < len; ++j) {
+            unsigned char c = buf[i + j];
+            putchar((c >= 0x20 && c <= 0x7e) ? c : '.');
+        }
+        puts("|");
+    }
+}

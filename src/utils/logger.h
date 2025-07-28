@@ -2,6 +2,7 @@
 #pragma once
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef enum {
     LOG_DEBUG = 0,
@@ -25,6 +26,7 @@ void log_syscall(long num_syscall,          // syscall number
 void log_ret(long retval, const char *tag); // " = 0x... (tag) "
 void log_kv(const char *key, const char *fmt, ...)
     __attribute__((format(printf, 2, 3))); // " => (key): ..."
+void log_hexdump(unsigned indent, const void *buf, size_t len);
 
 // Runtime knobs
 void log_set_min_level(log_level_t level);
