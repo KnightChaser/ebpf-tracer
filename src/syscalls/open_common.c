@@ -33,7 +33,7 @@ static struct pending_open *open_pending_list_tail = NULL;
  *
  * @param abspath The absolute path of the file being opened.
  */
-static void pending_push(const char *abspath) {
+static void open_pending_push(const char *abspath) {
     struct pending_open *n = calloc(1, sizeof(struct pending_open));
     if (!n) {
         // Memory allocation failed
@@ -66,7 +66,7 @@ static void pending_push(const char *abspath) {
  * @return The absolute path of the file being opened, or NULL if no pending
  * opens.
  */
-static char *pending_pop(void) {
+static char *open_pending_pop(void) {
     if (!open_pending_list_head) {
         // No pending opens
         return NULL;
@@ -260,9 +260,9 @@ void open_enter_dispatch(pid_t pid, const struct syscall_event *e) {
             build_abs_path(pid, oa.path, abs, sizeof(abs)) == 0) {
             // If we successfully fetched the arguments, and built the absolute
             // path, we can stash it for later use.
-            pending_push(abs);
+            open_pending_push(abs);
         } else {
-            pending_push(NULL);
+            open_pending_push(NULL);
         }
     }
 }
@@ -279,7 +279,7 @@ void open_exit_dispatch(pid_t pid, const struct syscall_event *e) {
     // to the fd_cache too. Maybe other syscalls such as dup() or close() use.
     {
         long ret = e->exit.retval;
-        char *abs = pending_pop();
+        char *abs = open_pending_pop();
         if (ret >= 0 && abs && *abs) {
             fd_cache_set((int)ret, abs);
         }
