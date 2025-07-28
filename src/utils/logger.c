@@ -206,7 +206,7 @@ void log_ret(long retval, const char *tag) {
         return;
     }
 
-    printf("\n %s=%s 0x%lx%s%s%s\n",
+    printf("    %s=%s 0x%lx%s%s%s\n",
            get_color_ansi_code(COLOR_GRAY),   // +gray
            get_color_ansi_code(COLOR_RESET),  // -color
            retval,                            // return value
