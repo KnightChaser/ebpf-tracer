@@ -18,10 +18,13 @@ void log_warn(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void log_error(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 // Special logging functions
-void log_syscall(long num_syscall,     // syscall number
-                 const char *name,     // syscall name
-                 const char *args_fmt, // format string for arguments
-                 long retval);         // return value
+void log_syscall(long num_syscall,          // syscall number
+                 const char *name,          // syscall name
+                 const char *args_fmt,      // format string for arguments
+                 long retval);              // return value
+void log_ret(long retval, const char *tag); // " = 0x... (tag) "
+void log_kv(const char *key, const char *fmt, ...)
+    __attribute__((format(printf, 2, 3))); // " => (key): ..."
 
 // Runtime knobs
 void log_set_min_level(log_level_t level);

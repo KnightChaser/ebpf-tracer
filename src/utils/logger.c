@@ -168,8 +168,9 @@ void log_error(const char *fmt, ...) {
  */
 void log_syscall(long num_syscall, const char *name, const char *args_fmt,
                  long retval) {
-    if (g_quiet || LOG_SYSCALL < g_min_level)
+    if (g_quiet || LOG_SYSCALL < g_min_level) {
         return;
+    }
 
     printf("%s%3ld%s %-16s%s%s = %s0x%lx%s\n",
            get_color_ansi_code(COLOR_CYAN),  // +cyan
@@ -181,4 +182,52 @@ void log_syscall(long num_syscall, const char *name, const char *args_fmt,
            get_color_ansi_code(COLOR_GRAY),       // +gray
            retval,                                // return value
            get_color_ansi_code(COLOR_RESET));     // -color
+}
+
+/**
+ * Logs a return value with an optional tag.
+ *
+ * example: " = 0x1234 (tag)"
+ *
+ * @param retval The return value of the syscall.
+ * @param tag An optional tag to append to the log message.
+ */
+void log_ret(long retval, const char *tag) {
+    if (g_quiet || LOG_SYSCALL < g_min_level) {
+        return;
+    }
+
+    printf("\n %s=%s 0x%lx%s%s%s\n",
+           get_color_ansi_code(COLOR_GRAY),   // +gray
+           get_color_ansi_code(COLOR_RESET),  // -color
+           retval,                            // return value
+           *tag ? " " : "",                   // space if tag is present
+           *tag ? tag : "",                   // tag
+           get_color_ansi_code(COLOR_RESET)); // -color
+}
+
+/**
+ * Logs a key-value pair with a formatted message.
+ *
+ * example: "    key=>value: ..."
+ *
+ * @param key The key to log.
+ * @param fmt The format string for the value.
+ * @param ... The variable arguments for the format string.
+ */
+void log_kv(const char *key, const char *fmt, ...) {
+    if (g_quiet || LOG_SYSCALL < g_min_level) {
+        return;
+    }
+
+    printf("    %s=>%s %s: ",
+           get_color_ansi_code(COLOR_BOLD),  // +bold
+           get_color_ansi_code(COLOR_RESET), // -color
+           key);                             // key
+
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap); // Print the formatted message later
+    va_end(ap);
+    putchar('\n');
 }
