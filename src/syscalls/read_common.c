@@ -3,6 +3,7 @@
 #include "read_common.h"
 #include "../syscalls/syscalls.h"
 // #include "handlers/handle_pread.h"
+#include "../utils/logger.h"
 #include "handlers/handle_read.h"
 // #include "handlers/handle_readv.h"
 #include <stdio.h>
@@ -16,7 +17,7 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 // NOTE: Show only up to 64 bytes of data for buffer in read() syscall
-static const size_t DUMP_MAX = 64;
+static const size_t DUMP_MAX = 256;
 
 /**
  * Structure to hold pending (file) read requests.
@@ -201,9 +202,10 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
                 if (process_vm_readv(pid, &local, 1, &remote, 1, 0) ==
                     (ssize_t)to_read) {
                     buf[to_read] = '\0';
-                    printf(" => data: \"%s\"%s\n", buf,
-                           (size_t)bytes_read > to_read ? "... (truncated)"
-                                                        : "");
+                    log_kv("data", "first (up to) %zu byte%s%s", /* headline */
+                           to_read, to_read == 1 ? "" : "s",
+                           (size_t)bytes_read > to_read ? " (truncated)" : "");
+                    log_hexdump(8, buf, to_read);
                 }
                 free(buf);
             }

@@ -2,6 +2,7 @@
 
 #define _GNU_SOURCE
 #include "open_common.h"
+#include "../utils/logger.h"
 #include "fd_cache.h"
 #include "handlers/handle_open.h"
 #include "handlers/handle_openat.h"
@@ -215,17 +216,12 @@ int fetch_open_args(pid_t pid,                     // [in]
 void print_open_exit(pid_t pid __attribute__((unused)),
                      const struct syscall_event *e) {
     long ret = e->exit.retval;
-    printf("\n = 0x%lx (open[at[2]])\n", ret);
+    log_ret(ret, "open[at[2]]");
     if (ret >= 0) {
         // If the syscall succeeded, we can try to resolve the file descriptor
         const char *path = fd_cache_get((int)ret);
-        if (path) {
-            printf(" => path: %s", path);
-        } else {
-            printf(" => path: <unknown>\n");
-        }
+        log_kv("path", "%s", path ? path : "<unknown>");
     }
-    printf("\n");
 }
 
 /**
@@ -246,9 +242,9 @@ void open_enter_dispatch(pid_t pid, const struct syscall_event *e) {
         handle_openat2_enter(pid, e);
         break;
     default:
-        printf("Unhandled syscall: %ld, expected either open, openat, or "
-               "openat2\n",
-               e->syscall_nr);
+        log_error("Unhandled syscall: %ld, expected either open, openat, or "
+                  "openat2",
+                  e->syscall_nr);
         handle_sys_enter_default(pid, e);
     }
 
@@ -299,9 +295,9 @@ void open_exit_dispatch(pid_t pid, const struct syscall_event *e) {
         handle_openat2_exit(pid, e);
         break;
     default:
-        printf("Unhandled syscall: %ld, expected either open, openat, or "
-               "openat2\n",
-               e->syscall_nr);
+        log_error("Unhandled syscall: %ld, expected either open, openat, or "
+                  "openat2",
+                  e->syscall_nr);
         handle_sys_exit_default(pid, e);
     }
 }
