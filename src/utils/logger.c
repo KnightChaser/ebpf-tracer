@@ -172,16 +172,25 @@ void log_syscall(long num_syscall, const char *name, const char *args_fmt,
         return;
     }
 
-    printf("%s%3ld%s %-16s%s%s = %s0x%lx%s\n",
-           get_color_ansi_code(COLOR_CYAN),  // +cyan
-           num_syscall,                      // syscall number
-           get_color_ansi_code(COLOR_RESET), // -color
-           name ? name : "UNKNOWN",          // syscall name
-           args_fmt && *args_fmt ? "(" : "", // opening parenthesis for args
-           args_fmt && *args_fmt ? args_fmt : "", // format string for arguments
-           get_color_ansi_code(COLOR_GRAY),       // +gray
-           retval,                                // return value
-           get_color_ansi_code(COLOR_RESET));     // -color
+    const char *c_cyan = get_color_ansi_code(COLOR_CYAN);
+    const char *c_yellow = get_color_ansi_code(COLOR_YELLOW);
+    const char *c_gray = get_color_ansi_code(COLOR_GRAY);
+    const char *c_bold = get_color_ansi_code(COLOR_BOLD);
+    const char *c_reset = get_color_ansi_code(COLOR_RESET);
+
+    // Build argument string
+    char argbuf[256] = "";
+    if (args_fmt && *args_fmt)
+        snprintf(argbuf, sizeof(argbuf), "(%s)", args_fmt);
+
+    // Print:  [bold][cyan]NNN[reset]   [yellow]name[reset]  (args)  = 0x...
+    printf("%s%s%03ld%s %-16s%s %s%s = %s%#lx%s\n", c_bold, c_cyan, num_syscall,
+           c_reset,                                      // number
+           c_yellow, (name ? name : "UNKNOWN"), c_reset, // name
+           argbuf,                                       // arguments (args)
+           c_gray, retval, c_reset);                     // return value (ret)
+
+    // Bold is closed by the trailing reset
 }
 
 /**
