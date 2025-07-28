@@ -76,5 +76,6 @@ void handle_openat_enter(pid_t pid, const struct syscall_event *e) {
  * @param e The syscall event containing the arguments.
  */
 void handle_openat_exit(pid_t id, const struct syscall_event *e) {
+    log_ret(e->exit.retval, "openat");
     print_open_exit(id, e);
 }

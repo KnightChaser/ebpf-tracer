@@ -85,5 +85,6 @@ void handle_openat2_enter(pid_t pid, const struct syscall_event *e) {
  * @param e The syscall event containing the return value.
  */
 void handle_openat2_exit(pid_t pid, const struct syscall_event *e) {
+    log_ret(e->exit.retval, "openat2");
     print_open_exit(pid, e);
 }

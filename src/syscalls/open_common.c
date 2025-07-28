@@ -216,7 +216,6 @@ int fetch_open_args(pid_t pid,                     // [in]
 void print_open_exit(pid_t pid __attribute__((unused)),
                      const struct syscall_event *e) {
     long ret = e->exit.retval;
-    log_ret(ret, "open[at[2]]");
     if (ret >= 0) {
         // If the syscall succeeded, we can try to resolve the file descriptor
         const char *path = fd_cache_get((int)ret);

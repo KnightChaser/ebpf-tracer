@@ -47,5 +47,5 @@ void handle_read_enter(pid_t pid __attribute__((unused)),
 void handle_read_exit(pid_t pid __attribute__((unused)),
                       const struct syscall_event *e) {
     long ret = e->exit.retval;
-    log_kv("ret", "%ld (read)", ret);
+    log_ret(ret, "read");
 }

@@ -65,5 +65,6 @@ void handle_open_enter(pid_t pid, const struct syscall_event *e) {
  * @param e The syscall event containing the return value.
  */
 void handle_open_exit(pid_t pid, const struct syscall_event *e) {
+    log_ret(e->exit.retval, "open");
     print_open_exit(pid, e);
 }

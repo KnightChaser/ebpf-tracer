@@ -1,6 +1,7 @@
 // src/syscalls/dup_common.c
 #define _GNU_SOURCE
 #include "dup_common.h"
+#include "../utils/logger.h"
 #include "fd_cache.h"
 #include "utils.h"
 #include <fcntl.h>
@@ -57,7 +58,7 @@ int fetch_dup_args(pid_t pid __attribute__((unused)), // [in]
  */
 void print_dup_exit(pid_t pid, const struct syscall_event *e) {
     long ret = e->exit.retval;
-    printf(" = 0x%lx\n", ret);
+    log_kv("dup", "0x%lx", ret);
 
     if (ret >= 0) {
         // 1) grab the oldfd so we know what path to duplicate
