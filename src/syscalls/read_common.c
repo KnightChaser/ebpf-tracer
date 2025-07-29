@@ -157,7 +157,9 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
         handle_preadv_enter(pid, e);
         break;
     default:
-        log_error("Unhandled read-like syscall: %ld", e->syscall_nr);
+        log_error("Unhandled syscall: expected either 'read', 'pread64', "
+                  "'readv', or 'preadv', got %ld",
+                  e->syscall_nr);
         handle_sys_enter_default(pid, e);
     }
 
@@ -187,7 +189,8 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
     long bytes_read = 0;
 
     long nr = e->syscall_nr;
-    if (nr == SYS_read || nr == SYS_pread64 || nr == SYS_readv) {
+    if (nr == SYS_read || nr == SYS_pread64 || nr == SYS_readv ||
+        nr == SYS_preadv) {
         bytes_read = e->exit.retval;
 
         switch (nr) {
@@ -209,15 +212,16 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
             return;
         }
     } else {
-        log_error("Unhandled syscall: %ld, expected either open, openat, or "
-                  "openat2",
+        log_error("Unhandled syscall: expected either 'read', 'pread64', "
+                  "'readv', or 'preadv', got %ld",
                   e->syscall_nr);
         handle_sys_exit_default(pid, e);
     }
 
     // If possible, dump the read data
     if (bytes_read > 0) {
-        if (e->syscall_nr == SYS_readv || e->syscall_nr == SYS_pread64) {
+        if (e->syscall_nr == SYS_readv || e->syscall_nr == SYS_readv ||
+            e->syscall_nr == SYS_pread64) {
             dump_remote_iov(pid, ra.iov, ra.iovcnt, (size_t)bytes_read,
                             (size_t)bytes_read);
         } else if (e->syscall_nr == SYS_read && ra.buf) {
