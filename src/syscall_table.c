@@ -41,12 +41,13 @@ void syscall_table_init(void) {
     if (IS_SYSCALL_SUPPORTED(SYS_dup3)) {
         REGISTER_SYSCALL_HANDLER(SYS_dup3, handle_dup3_enter, handle_dup3_exit);
     }
+#endif
 
     // fcntl
     REGISTER_SYSCALL_HANDLER(SYS_fcntl, handle_fcntl_enter, handle_fcntl_exit);
 
     // read
     REGISTER_SYSCALL_HANDLER(SYS_read, read_enter_dispatch, read_exit_dispatch);
-
-#endif
+    REGISTER_SYSCALL_HANDLER(SYS_pread64, read_enter_dispatch,
+                             read_exit_dispatch);
 }

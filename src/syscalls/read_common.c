@@ -2,10 +2,11 @@
 #define _GNU_SOURCE
 #include "read_common.h"
 #include "../syscalls/syscalls.h"
-// #include "handlers/handle_pread.h"
 #include "../utils/logger.h"
+#include "handlers/handle_pread.h"
 #include "handlers/handle_read.h"
 // #include "handlers/handle_readv.h"
+#include "../utils/remote_bytes.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,11 +14,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
-
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
-// NOTE: Show only up to 64 bytes of data for buffer in read() syscall
-static const size_t DUMP_MAX = 256;
 
 /**
  * Structure to hold pending (file) read requests.
@@ -183,41 +179,27 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
     struct read_args ra = read_pending_pop();
     long bytes_read = 0;
 
-    switch (e->syscall_nr) {
-    case SYS_read:
+    long nr = e->syscall_nr;
+    if (nr == SYS_read || nr == SYS_pread64 /* || nr == SYS_readv */) {
         bytes_read = e->exit.retval;
-        // First print the usual retval line
-        handle_read_exit(pid, e);
 
-        // If it actually read something, use your saved ra.buf &
-        // ra.count
-        if (bytes_read > 0 && ra.buf) {
-            size_t to_read = MIN((size_t)bytes_read, DUMP_MAX);
-            char *buf = calloc(to_read + 1, sizeof(char));
-            if (buf) {
-                struct iovec local = {.iov_base = buf, .iov_len = to_read};
-                struct iovec remote = {.iov_base = (void *)ra.buf,
-                                       .iov_len = to_read};
-
-                if (process_vm_readv(pid, &local, 1, &remote, 1, 0) ==
-                    (ssize_t)to_read) {
-                    buf[to_read] = '\0';
-                    log_kv("data", "first (up to) %zu byte%s%s", /* headline */
-                           to_read, to_read == 1 ? "" : "s",
-                           (size_t)bytes_read > to_read ? " (truncated)" : "");
-                    log_hexdump(8, buf, to_read);
-                }
-                free(buf);
-            }
+        switch (nr) {
+        case SYS_read:
+            handle_read_exit(pid, e);
+            break;
+        case SYS_pread64:
+            handle_pread_exit(pid, e);
+            break;
         }
-        break;
-    // case SYS_pread64:
-    //     handle_pread_exit(pid, e);
-    //     break;
-    // case SYS_readv:
-    //     handle_readv_exit(pid, e);
-    //     break;
-    default:
+
+        if (bytes_read > 0 && ra.buf) {
+            dump_remote_bytes(pid, (void *)ra.buf, (size_t)bytes_read,
+                              (size_t)bytes_read);
+        }
+    } else {
+        log_error("Unhandled syscall: %ld, expected either open, openat, or "
+                  "openat2",
+                  e->syscall_nr);
         handle_sys_exit_default(pid, e);
     }
 }

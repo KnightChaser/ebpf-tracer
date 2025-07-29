@@ -75,6 +75,7 @@ handlers = files(
   'syscalls/handlers/handle_open.c',
   'syscalls/handlers/handle_openat.c',
   'syscalls/handlers/handle_openat2.c',
+  'syscalls/handlers/handle_pread.c',
   'syscalls/handlers/handle_read.c',
 )
 
@@ -94,7 +95,7 @@ syscall_sources = files(
   'syscalls/utils.h',
 ) + handlers
 
-utils_sources = files('utils/logger.c')
+utils_sources = files('utils/logger.c', 'utils/remote_bytes.c')
 
 common_sources = ['loader.c', 'syscall_table.c'] + syscall_sources + utils_sources
 
