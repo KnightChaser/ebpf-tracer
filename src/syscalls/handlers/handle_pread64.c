@@ -1,4 +1,4 @@
-// src/syscalls/handlers/handle_pread.c
+// src/syscalls/handlers/handle_pread64.c
 #define _GNU_SOURCE
 #include "../../syscalls/syscalls.h"
 #include "../../utils/logger.h"
@@ -8,13 +8,13 @@
 #include <unistd.h>
 
 /**
- * Handles the enter of the pread syscall.
+ * Handles the enter of the pread64 syscall.
  * This function prints the arguments of the syscall.
  *
  * @param pid The process ID.
  * @param e The syscall event containing the arguments.
  */
-void handle_pread_enter(pid_t pid, const struct syscall_event *e) {
+void handle_pread64_enter(pid_t pid, const struct syscall_event *e) {
     struct read_args args;
     if (fetch_read_args(pid, e, &args) != 0) {
         handle_sys_enter_default(pid, e);
@@ -38,13 +38,13 @@ void handle_pread_enter(pid_t pid, const struct syscall_event *e) {
 }
 
 /**
- * Handles the exit of the pread syscall.
+ * Handles the exit of the pread64 syscall.
  * This function prints the return value and, if applicable, the data read.
  *
  * @param pid The process ID.
  * @param e The syscall event containing the return value.
  */
-void handle_pread_exit(pid_t pid __attribute__((unused)),
-                       const struct syscall_event *e) {
+void handle_pread64_exit(pid_t pid __attribute__((unused)),
+                         const struct syscall_event *e) {
     log_ret(e->exit.retval, "pread");
 }

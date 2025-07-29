@@ -4,7 +4,7 @@
 #include "../syscalls/syscalls.h"
 #include "../utils/logger.h"
 #include "../utils/remote_bytes.h"
-#include "handlers/handle_pread.h"
+#include "handlers/handle_pread64.h"
 #include "handlers/handle_read.h"
 #include "handlers/handle_readv.h"
 #include <stdio.h>
@@ -145,7 +145,7 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
         handle_read_enter(pid, e);
         break;
     case SYS_pread64:
-        handle_pread_enter(pid, e);
+        handle_pread64_enter(pid, e);
         break;
     case SYS_readv:
         handle_readv_enter(pid, e);
@@ -188,7 +188,7 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
             handle_read_exit(pid, e);
             break;
         case SYS_pread64:
-            handle_pread_exit(pid, e);
+            handle_pread64_exit(pid, e);
             break;
         case SYS_readv:
             handle_readv_exit(pid, e);
