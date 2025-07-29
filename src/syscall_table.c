@@ -49,8 +49,12 @@ void syscall_table_init(void) {
     // read
     REGISTER_SYSCALL_HANDLER(SYS_pread64, read_enter_dispatch,
                              read_exit_dispatch);
-    REGISTER_SYSCALL_HANDLER(SYS_preadv, read_enter_dispatch,
-                             read_exit_dispatch);
+#ifdef SYS_preadv
+    if (IS_SYSCALL_SUPPORTED(SYS_preadv)) {
+        REGISTER_SYSCALL_HANDLER(SYS_preadv, read_enter_dispatch,
+                                 read_exit_dispatch);
+    }
+#endif
     REGISTER_SYSCALL_HANDLER(SYS_read, read_enter_dispatch, read_exit_dispatch);
     REGISTER_SYSCALL_HANDLER(SYS_readv, read_enter_dispatch,
                              read_exit_dispatch);
