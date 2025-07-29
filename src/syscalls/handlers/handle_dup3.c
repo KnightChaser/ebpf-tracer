@@ -1,4 +1,7 @@
 // src/syscalls/handlers/handle_dup3.c
+#include "../../utils/logger.h"
+#include "../fd_cache.h"
+
 #include "../dup_common.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -10,13 +13,22 @@
  * @param pid The process ID of the syscall event.
  * @param e The syscall event containing the arguments.
  */
-void handle_dup3_enter(pid_t pid, const struct syscall_event *e) {
+void handle_dup3_enter(pid_t pid __attribute__((unused)),
+                       const struct syscall_event *e) {
     int oldfd = (int)e->enter.args[0];
     int newfd = (int)e->enter.args[1];
     int flags = (int)e->enter.args[2];
-    printf("%-6ld %-16s(%d, %d, 0x%x)", e->syscall_nr, e->enter.name, oldfd,
-           newfd, flags);
-    fflush(stdout);
+
+    char argbuf[48] = {0};
+    snprintf(argbuf, sizeof(argbuf), "%d, %d, 0x%x", oldfd, newfd, flags);
+    log_syscall(e->syscall_nr, e->enter.name, argbuf, /*retval*/ 0);
+
+    const char *p = fd_cache_get(oldfd);
+    if (p) {
+        log_kv("oldfd (path resolved)", "%s", p);
+    } else {
+        log_kv("oldfd (path unresolved)", "%d", oldfd);
+    }
 }
 
 /**
