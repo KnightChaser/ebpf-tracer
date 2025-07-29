@@ -3,10 +3,10 @@
 #include "read_common.h"
 #include "../syscalls/syscalls.h"
 #include "../utils/logger.h"
+#include "../utils/remote_bytes.h"
 #include "handlers/handle_pread.h"
 #include "handlers/handle_read.h"
-// #include "handlers/handle_readv.h"
-#include "../utils/remote_bytes.h"
+#include "handlers/handle_readv.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -144,12 +144,12 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
     case SYS_read:
         handle_read_enter(pid, e);
         break;
-    // case SYS_pread64:
-    //     handle_pread_enter(pid, e);
-    //     break;
-    // case SYS_readv:
-    //     handle_readv_enter(pid, e);
-    //     break;
+    case SYS_pread64:
+        handle_pread_enter(pid, e);
+        break;
+    case SYS_readv:
+        handle_readv_enter(pid, e);
+        break;
     default:
         handle_sys_enter_default(pid, e);
     }
@@ -180,7 +180,7 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
     long bytes_read = 0;
 
     long nr = e->syscall_nr;
-    if (nr == SYS_read || nr == SYS_pread64 /* || nr == SYS_readv */) {
+    if (nr == SYS_read || nr == SYS_pread64 || nr == SYS_readv) {
         bytes_read = e->exit.retval;
 
         switch (nr) {
@@ -190,16 +190,25 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
         case SYS_pread64:
             handle_pread_exit(pid, e);
             break;
-        }
-
-        if (bytes_read > 0 && ra.buf) {
-            dump_remote_bytes(pid, (void *)ra.buf, (size_t)bytes_read,
-                              (size_t)bytes_read);
+        case SYS_readv:
+            handle_readv_exit(pid, e);
+            break;
         }
     } else {
         log_error("Unhandled syscall: %ld, expected either open, openat, or "
                   "openat2",
                   e->syscall_nr);
         handle_sys_exit_default(pid, e);
+    }
+
+    // If possible, dump the read data
+    if (bytes_read > 0 && ra.buf) {
+        if (e->syscall_nr == SYS_readv || e->syscall_nr == SYS_preadv) {
+            dump_remote_iov(pid, ra.iov, ra.iovcnt, (size_t)bytes_read,
+                            (size_t)bytes_read);
+        } else if (e->syscall_nr == SYS_read) {
+            dump_remote_bytes(pid, (void *)ra.buf, (size_t)bytes_read,
+                              (size_t)bytes_read);
+        }
     }
 }

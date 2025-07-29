@@ -48,6 +48,8 @@ void syscall_table_init(void) {
 
     // read
     REGISTER_SYSCALL_HANDLER(SYS_read, read_enter_dispatch, read_exit_dispatch);
+    REGISTER_SYSCALL_HANDLER(SYS_readv, read_enter_dispatch,
+                             read_exit_dispatch);
     REGISTER_SYSCALL_HANDLER(SYS_pread64, read_enter_dispatch,
                              read_exit_dispatch);
 }
