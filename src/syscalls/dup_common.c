@@ -3,9 +3,7 @@
 #include "dup_common.h"
 #include "../utils/logger.h"
 #include "fd_cache.h"
-#include "utils.h"
 #include <fcntl.h>
-#include <stdio.h>
 #include <string.h>
 
 /**
@@ -70,7 +68,7 @@ void print_dup_exit(pid_t pid, const struct syscall_event *e) {
                 fd_cache_set((int)ret, oldpath);
             }
         }
-        // 3) finally, print it just like any other fd
-        print_fd_path(pid, (int)ret, 4);
+    } else {
+        log_error("dup failed with error: %s", strerror(-ret));
     }
 }

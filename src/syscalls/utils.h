@@ -82,20 +82,3 @@ static inline ssize_t fd_realpath(pid_t pid, int fd, char *buf, size_t bufsz) {
 
     return bytes_read;
 }
-
-/**
- * Print the file descriptor path in a human-readable format on the console
- * directly.
- *
- * @param pid The process ID.
- * @param fd The file descriptor.
- * @param indent The number of spaces to indent the output.
- */
-static inline void print_fd_path(pid_t pid, int fd, int indent) {
-    char p[PATH_MAX];
-    if (fd_realpath(pid, fd, p, sizeof(p)) < 0) {
-        // Failed to resolve the path
-        return;
-    }
-    printf("%*spath => %s\n", indent, "", p);
-}
