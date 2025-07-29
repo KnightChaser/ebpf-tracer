@@ -96,41 +96,61 @@ int fetch_read_args(pid_t pid, const struct syscall_event *e,
                     struct read_args *out) {
     memset(out, 0, sizeof(*out));
     out->fd = (int)e->enter.args[0];
-    out->count = e->enter.args[2 < e->enter.num_args ? 2 : 1];
 
     switch (e->syscall_nr) {
-    case SYS_read:
+
+    case SYS_read: /* ssize_t read (fd, buf, count)   */
         out->buf = e->enter.args[1];
+        out->count = e->enter.args[2];
         return 0;
-    case SYS_pread64:
+
+    case SYS_pread64: /* ssize_t pread64(fd,buf,count,off) */
         out->buf = e->enter.args[1];
+        out->count = e->enter.args[2];
         out->offset = (off_t)e->enter.args[3];
         return 0;
-    case SYS_preadv: // fallthrough
+
+    case SYS_preadv: /* ssize_t preadv(fd,iov,iovcnt,off) */
         out->offset = (off_t)e->enter.args[3];
-        // Fall through to handle readv(SYS_readv)
-    case SYS_readv:
+        // fallthrough
+
+    case SYS_readv: /* ssize_t readv(fd,iov,iovcnt) */
         out->iovcnt = (int)e->enter.args[2];
-        out->iov = calloc(out->iovcnt, sizeof(struct iovec));
-        if (!out->iov) {
+        if (out->iovcnt <= 0) {
+            log_error("readv/preadv with iovcnt=%d", out->iovcnt);
             return -1;
         }
-        // Pull the array of iovec structures from the process memory
-        {
-            struct iovec local = {
-                .iov_base = (void *)out->iov,
-                .iov_len = sizeof(*out->iov) * out->iovcnt,
-            };
-            struct iovec remote = {
-                .iov_base = (void *)e->enter.args[1],
-                .iov_len = sizeof(*out->iov) * out->iovcnt,
-            };
-            if (process_vm_readv(pid, &local, 1, &remote, 1, 0) < 0) {
-                free(out->iov);
-                return -1;
-            }
+
+        out->iov = calloc(out->iovcnt, sizeof(struct iovec));
+        if (!out->iov) {
+            perror("calloc");
+            return -1;
         }
+
+        // copy the remote iovec array
+        struct iovec liov = {.iov_base = out->iov,
+                             .iov_len = sizeof(struct iovec) * out->iovcnt};
+        struct iovec riov = {.iov_base = (void *)e->enter.args[1],
+                             .iov_len = liov.iov_len};
+
+        if (process_vm_readv(pid, &liov, 1, &riov, 1, 0) < 0) {
+            free(out->iov);
+            out->iov = NULL;
+            return -1;
+        }
+
+        // optional: compute total bytes requested
+        size_t total = 0;
+        for (int i = 0; i < out->iovcnt; ++i) {
+            total += out->iov[i].iov_len;
+        }
+        out->count = total;
+
+        return 0;
+
     default:
+        log_error("Unhandled read-like syscall %ld in fetch_read_args",
+                  e->syscall_nr);
         return -1;
     }
 }
@@ -158,7 +178,7 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
         break;
     default:
         log_error("Unhandled syscall: expected either 'read', 'pread64', "
-                  "'readv', or 'preadv', got %ld",
+                  "'readv', or 'preadv', got %ld (enter_dispatch)",
                   e->syscall_nr);
         handle_sys_enter_default(pid, e);
     }
@@ -213,20 +233,22 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
         }
     } else {
         log_error("Unhandled syscall: expected either 'read', 'pread64', "
-                  "'readv', or 'preadv', got %ld",
+                  "'readv', or 'preadv', got %ld (exit_dispatch)",
                   e->syscall_nr);
         handle_sys_exit_default(pid, e);
     }
 
     // If possible, dump the read data
+    bool is_vectored = (nr == SYS_readv || nr == SYS_preadv);
     if (bytes_read > 0) {
-        if (e->syscall_nr == SYS_readv || e->syscall_nr == SYS_readv ||
-            e->syscall_nr == SYS_pread64) {
+        if (is_vectored && ra.iov && ra.iovcnt > 0) {
             dump_remote_iov(pid, ra.iov, ra.iovcnt, (size_t)bytes_read,
                             (size_t)bytes_read);
-        } else if (e->syscall_nr == SYS_read && ra.buf) {
+        } else if (!is_vectored && ra.buf) {
             dump_remote_bytes(pid, (void *)ra.buf, (size_t)bytes_read,
                               (size_t)bytes_read);
         }
     }
+
+    free(ra.iov);
 }
