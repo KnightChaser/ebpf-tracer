@@ -5,6 +5,7 @@
 #include "../utils/logger.h"
 #include "../utils/remote_bytes.h"
 #include "handlers/handle_pread64.h"
+#include "handlers/handle_preadv.h"
 #include "handlers/handle_read.h"
 #include "handlers/handle_readv.h"
 #include <stdio.h>
@@ -105,6 +106,9 @@ int fetch_read_args(pid_t pid, const struct syscall_event *e,
         out->buf = e->enter.args[1];
         out->offset = (off_t)e->enter.args[3];
         return 0;
+    case SYS_preadv: // fallthrough
+        out->offset = (off_t)e->enter.args[3];
+        // Fall through to handle readv(SYS_readv)
     case SYS_readv:
         out->iovcnt = (int)e->enter.args[2];
         out->iov = calloc(out->iovcnt, sizeof(struct iovec));
@@ -126,7 +130,6 @@ int fetch_read_args(pid_t pid, const struct syscall_event *e,
                 return -1;
             }
         }
-        return 0;
     default:
         return -1;
     }
@@ -150,7 +153,11 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
     case SYS_readv:
         handle_readv_enter(pid, e);
         break;
+    case SYS_preadv:
+        handle_preadv_enter(pid, e);
+        break;
     default:
+        log_error("Unhandled read-like syscall: %ld", e->syscall_nr);
         handle_sys_enter_default(pid, e);
     }
 
@@ -193,6 +200,13 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
         case SYS_readv:
             handle_readv_exit(pid, e);
             break;
+        case SYS_preadv:
+            handle_preadv_exit(pid, e);
+            break;
+        default:
+            log_error("Unhandled read-like syscall: %ld", e->syscall_nr);
+            handle_sys_exit_default(pid, e);
+            return;
         }
     } else {
         log_error("Unhandled syscall: %ld, expected either open, openat, or "
