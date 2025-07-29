@@ -128,15 +128,17 @@ int fetch_read_args(pid_t pid, const struct syscall_event *e,
         }
 
         // copy the remote iovec array
-        struct iovec liov = {.iov_base = out->iov,
-                             .iov_len = sizeof(struct iovec) * out->iovcnt};
-        struct iovec riov = {.iov_base = (void *)e->enter.args[1],
-                             .iov_len = liov.iov_len};
+        {
+            struct iovec liov = {.iov_base = out->iov,
+                                 .iov_len = sizeof(struct iovec) * out->iovcnt};
+            struct iovec riov = {.iov_base = (void *)e->enter.args[1],
+                                 .iov_len = liov.iov_len};
 
-        if (process_vm_readv(pid, &liov, 1, &riov, 1, 0) < 0) {
-            free(out->iov);
-            out->iov = NULL;
-            return -1;
+            if (process_vm_readv(pid, &liov, 1, &riov, 1, 0) < 0) {
+                free(out->iov);
+                out->iov = NULL;
+                return -1;
+            }
         }
 
         // optional: compute total bytes requested
@@ -204,51 +206,39 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
  * @param e The syscall event containing the arguments.
  */
 void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
-    // NOTE: yank the args that was stashed at enter-time
     struct read_args ra = read_pending_pop();
-    long bytes_read = 0;
+    long n = e->exit.retval;
 
-    long nr = e->syscall_nr;
-    if (nr == SYS_read || nr == SYS_pread64 || nr == SYS_readv ||
-        nr == SYS_preadv) {
-        bytes_read = e->exit.retval;
-
-        switch (nr) {
-        case SYS_read:
-            handle_read_exit(pid, e);
-            break;
-        case SYS_pread64:
-            handle_pread64_exit(pid, e);
-            break;
-        case SYS_readv:
-            handle_readv_exit(pid, e);
-            break;
-        case SYS_preadv:
-            handle_preadv_exit(pid, e);
-            break;
-        default:
-            log_error("Unhandled read-like syscall: %ld", e->syscall_nr);
-            handle_sys_exit_default(pid, e);
-            return;
-        }
-    } else {
-        log_error("Unhandled syscall: expected either 'read', 'pread64', "
-                  "'readv', or 'preadv', got %ld (exit_dispatch)",
-                  e->syscall_nr);
+    // first, print the normal return info
+    switch (e->syscall_nr) {
+    case SYS_read:
+        handle_read_exit(pid, e);
+        break;
+    case SYS_pread64:
+        handle_pread64_exit(pid, e);
+        break;
+    case SYS_readv:
+        handle_readv_exit(pid, e);
+        break;
+    case SYS_preadv:
+        handle_preadv_exit(pid, e);
+        break;
+    default:
         handle_sys_exit_default(pid, e);
+        break;
     }
 
-    // If possible, dump the read data
-    bool is_vectored = (nr == SYS_readv || nr == SYS_preadv);
-    if (bytes_read > 0) {
-        if (is_vectored && ra.iov && ra.iovcnt > 0) {
-            dump_remote_iov(pid, ra.iov, ra.iovcnt, (size_t)bytes_read,
-                            (size_t)bytes_read);
-        } else if (!is_vectored && ra.buf) {
-            dump_remote_bytes(pid, (void *)ra.buf, (size_t)bytes_read,
-                              (size_t)bytes_read);
+    // now dump the data if anything was read
+    if (n > 0) {
+        bool vectored =
+            (e->syscall_nr == SYS_readv || e->syscall_nr == SYS_preadv);
+        if (vectored && ra.iov && ra.iovcnt > 0) {
+            dump_remote_iov(pid, ra.iov, ra.iovcnt, (size_t)n, (size_t)n);
+        } else if (!vectored && ra.buf) {
+            dump_remote_bytes(pid, (void *)ra.buf, (size_t)n, (size_t)n);
         }
     }
 
+    // free the iovec we malloc’d (safe even if NULL)
     free(ra.iov);
 }
