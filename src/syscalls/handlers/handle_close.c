@@ -81,7 +81,7 @@ void handle_close_enter(pid_t pid __attribute__((unused)),
 
     const char *path = fd_cache_get(fd);
     if (path) {
-        printf("\n => path: %s\n", path);
+        log_kv("path", "%s", path);
     }
 
     // stash the fd so that on exit we can evict it if the current close system
