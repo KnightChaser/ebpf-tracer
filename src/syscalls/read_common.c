@@ -202,11 +202,11 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
     }
 
     // If possible, dump the read data
-    if (bytes_read > 0 && ra.buf) {
-        if (e->syscall_nr == SYS_readv || e->syscall_nr == SYS_preadv) {
+    if (bytes_read > 0) {
+        if (e->syscall_nr == SYS_readv || e->syscall_nr == SYS_pread64) {
             dump_remote_iov(pid, ra.iov, ra.iovcnt, (size_t)bytes_read,
                             (size_t)bytes_read);
-        } else if (e->syscall_nr == SYS_read) {
+        } else if (e->syscall_nr == SYS_read && ra.buf) {
             dump_remote_bytes(pid, (void *)ra.buf, (size_t)bytes_read,
                               (size_t)bytes_read);
         }
