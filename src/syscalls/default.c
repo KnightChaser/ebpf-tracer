@@ -12,9 +12,9 @@
 void handle_sys_enter_default(pid_t pid __attribute__((unused)),
                               const struct syscall_event *e) {
     if (e->enter.name[0] != '\0') {
-        printf("%-6ld %-16s(", e->syscall_nr, e->enter.name);
+        printf("%-6ld [?] %-16s(", e->syscall_nr, e->enter.name);
     } else {
-        printf("%-6ld UNKNOWNSYSCALL  (", e->syscall_nr);
+        printf("%-6ld [?] UNKNOWNSYSCALL  (", e->syscall_nr);
     }
 
     for (int i = 0; i < e->enter.num_args; ++i) {
