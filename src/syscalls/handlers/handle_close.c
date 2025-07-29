@@ -1,6 +1,7 @@
 // src/syscalls/handlers/handle_close.c
 #define _GNU_SOURCE
 #include "../../controller.h"
+#include "../../utils/logger.h"
 #include "../fd_cache.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,7 +74,11 @@ static int close_pop(void) {
 void handle_close_enter(pid_t pid __attribute__((unused)),
                         const struct syscall_event *e) {
     int fd = (int)e->enter.args[0];
-    printf("%-6ld %-16s(%d)", e->syscall_nr, e->enter.name, fd);
+
+    char argbuf[16];
+    snprintf(argbuf, sizeof(argbuf), "%d", fd);
+    log_syscall(e->syscall_nr, e->enter.name, argbuf, /*retval*/ 0);
+
     const char *path = fd_cache_get(fd);
     if (path) {
         printf("\n => path: %s\n", path);
