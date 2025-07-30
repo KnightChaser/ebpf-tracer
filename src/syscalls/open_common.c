@@ -7,6 +7,7 @@
 #include "handlers/handle_open.h"
 #include "handlers/handle_openat.h"
 #include "handlers/handle_openat2.h"
+#include "hashmap.h"
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <linux/openat2.h>
@@ -17,73 +18,96 @@
 #include <unistd.h>
 
 /**
- * Structure to hold pending (file) open requests.
- * This is used to track files that are opened but not yet resolved.
+ * The item that will be stored int he hashmap.
+ * It must contain the key (tid) and the value (abs_path)
  */
-struct pending_open {
+struct pending_open_item {
+    pid_t tid;
     char *abs_path;
-    struct pending_open *next;
 };
 
-static struct pending_open *open_pending_list_head = NULL;
-static struct pending_open *open_pending_list_tail = NULL;
-
 /**
- * Adds a pending open request to the list.
- * This is used to track files that are opened but not yet resolved.
+ * Compare function for the hashmap, required by hashmap.c
+ * It compares items by their thread ID (tid).
  *
- * @param abspath The absolute path of the file being opened.
+ * @param a Pointer to the first item.
+ * @param b Pointer to the second item.
+ * @param udata Unused user data pointer. (Required by hashmap API but unused
+ * explicitly)
  */
-static void open_pending_push(const char *abspath) {
-    struct pending_open *n = calloc(1, sizeof(struct pending_open));
-    if (!n) {
-        // Memory allocation failed
-        perror("Failed to allocate memory for pending open");
-        return;
-    }
+static int pending_open_compare(const void *a, const void *b,
+                                void *udata __attribute__((unused))) {
+    const struct pending_open_item *item_a = a;
+    const struct pending_open_item *item_b = b;
 
-    n->abs_path = strdup(abspath ? abspath : "");
-    if (!n->abs_path) {
-        // Memory allocation failed
-        free(n);
-        return;
-    }
-    n->next = NULL;
-
-    // If this is the first pending open, set it as the head.
-    // If there is already a tail, link it to the new node.
-    if (!open_pending_list_tail) {
-        open_pending_list_head = n;
-    } else {
-        open_pending_list_tail->next = n;
-    }
-    open_pending_list_tail = n;
+    return item_a->tid - item_b->tid;
 }
 
 /**
- * Pops the next pending open request from the list.
- * This is used to resolve files that were opened but not yet resolved.
+ * Hash function for the hashmap, required by hashmap.c
+ * It hashes the thread ID (tid) of the pending read item.
  *
- * @return The absolute path of the file being opened, or NULL if no pending
- * opens.
+ * @param item Pointer to the item to hash.
+ * @param seed0 First seed for hashing.
+ * @param seed1 Second seed for hashing.
+ * @return The computed hash value.
  */
-static char *open_pending_pop(void) {
-    if (!open_pending_list_head) {
-        // No pending opens
-        return NULL;
+static uint64_t pending_open_hash(const void *item, uint64_t seed0,
+                                  uint64_t seed1) {
+    const struct pending_open_item *p = item;
+    return hashmap_sip(&p->tid, sizeof(p->tid), seed0, seed1);
+}
+
+/**
+ * Frees the memory allocated for a pending open item.
+ * This function is called when the item is removed from the hashmap.
+ *
+ * @param item Pointer to the item to free.
+ */
+static void pending_open_item_free(void *item) {
+    struct pending_open_item *p = item;
+    free(p->abs_path);
+}
+
+// Global hash map to store pending open requests.
+static struct hashmap *pending_opens_map = NULL;
+
+/**
+ * Ensures that the pending reads hashmap is initialized.
+ * If it is not initialized, it creates a new hashmap for pending reads.
+ * (struct pending_open_item)
+ */
+static void ensure_map_initialized(void) {
+    if (pending_opens_map == NULL) {
+        pending_opens_map = hashmap_new(
+            sizeof(struct pending_open_item), // size of the item
+            0, 0, 0,                          // capacity and seeds
+            pending_open_hash,                // hash function
+            pending_open_compare,             // compare function
+            NULL, // elfree (element free) - we will handle freeing manually
+            NULL  // udata
+        );
     }
+}
 
-    struct pending_open *n = open_pending_list_head;
-    char *ret = n->abs_path;
-    open_pending_list_head = n->next;
+/**
+ * Cleans up the pending opens hashmap.
+ * This function should be called when the program is done with the hashmap.
+ */
+void open_common_cleanup(void) {
+    if (pending_opens_map) {
+        // Since hashmap contains string pointers with dynamically-allocated
+        // memory pointers, we need to free them before freeing the hashmap
+        // itself.
+        size_t iter = 0;
+        void *item;
+        while (hashmap_iter(pending_opens_map, &iter, &item)) {
+            pending_open_item_free(item);
+        }
 
-    if (!open_pending_list_head) {
-        // If we popped the last element, reset the tail as well.
-        open_pending_list_tail = NULL;
+        hashmap_free(pending_opens_map);
+        pending_opens_map = NULL;
     }
-    free(n);
-
-    return ret;
 }
 
 /**
@@ -230,6 +254,9 @@ void print_open_exit(pid_t pid __attribute__((unused)),
  * @param e The syscall_event structure containing syscall information.
  */
 void open_enter_dispatch(pid_t pid, const struct syscall_event *e) {
+    // NOTE: ensure the pending opens map is initialized
+    ensure_map_initialized();
+
     switch (e->syscall_nr) {
     case SYS_open:
         handle_open_enter(pid, e);
@@ -245,21 +272,25 @@ void open_enter_dispatch(pid_t pid, const struct syscall_event *e) {
                   "openat2",
                   e->syscall_nr);
         handle_sys_enter_default(pid, e);
+        return;
     }
 
     // NOTE: resolve & stash the absolute path for the open*_exit
-    {
-        struct open_args oa;
-        char abs[PATH_MAX];
-        if (fetch_open_args(pid, e, &oa) == 0 &&
-            build_abs_path(pid, oa.path, abs, sizeof(abs)) == 0) {
-            // If we successfully fetched the arguments, and built the absolute
-            // path, we can stash it for later use.
-            open_pending_push(abs);
-        } else {
-            open_pending_push(NULL);
-        }
+    struct open_args oa;
+    char abs_path_buf[PATH_MAX];
+    if (fetch_open_args(pid, e, &oa) == 0 &&
+        build_abs_path(pid, oa.path, abs_path_buf, sizeof(abs_path_buf)) == 0) {
+        // If the arguments are successfully fetched and built the absolute
+        // path as well, stash it in the hashmap
+        hashmap_set(pending_opens_map,
+                    &(struct pending_open_item){
+                        .tid = pid,
+                        // WARNING: strdup() allocates memory that must be freed
+                        .abs_path = strdup(abs_path_buf),
+                    });
     }
+    // If anything fails, we simply don't add to the map and
+    // the exit handler will find nothing from the hashmap.
 }
 
 /**
@@ -270,19 +301,22 @@ void open_enter_dispatch(pid_t pid, const struct syscall_event *e) {
  */
 void open_exit_dispatch(pid_t pid, const struct syscall_event *e) {
 
-    // NOTE: pop the path we stashed, and if the syscall succeeded, cache it
-    // to the fd_cache too. Maybe other syscalls such as dup() or close() use.
-    {
-        long ret = e->exit.retval;
-        char *abs = open_pending_pop();
-        if (ret >= 0 && abs && *abs) {
-            fd_cache_set((int)ret, abs);
+    // Retrieve the stashed path using the tid
+    struct pending_open_item *item = (struct pending_open_item *)hashmap_delete(
+        pending_opens_map, &(struct pending_open_item){.tid = pid});
+    long ret = e->exit.retval;
+
+    if (item) {
+        // We found the stashed path. If the syscall succeeded, cache it.
+        if (ret >= 0 && item->abs_path && *item->abs_path) {
+            fd_cache_set((int)ret, item->abs_path);
         }
-        free(abs);
+        pending_open_item_free(item);
     }
 
     // After setting the fd_cache(), we can handle the exit event.
-    // It will eventually call print_open_exit() to print the exit information.
+    // It will eventually call print_open_exit() to print the exit
+    // information.
     switch (e->syscall_nr) {
     case SYS_open:
         handle_open_exit(pid, e);

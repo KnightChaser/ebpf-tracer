@@ -7,7 +7,7 @@
 #include <linux/limits.h>
 #include <unistd.h>
 
-// Public entry points registered in syscall table
+void open_common_cleanup(void);
 void open_enter_dispatch(pid_t pid, const struct syscall_event *e);
 void open_exit_dispatch(pid_t pid, const struct syscall_event *e);
 
