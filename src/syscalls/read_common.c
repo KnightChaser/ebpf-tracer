@@ -78,6 +78,7 @@ static void ensure_map_initialized(void) {
                         NULL, NULL);
     }
 }
+
 /**
  * Cleans up the pending reads hashmap.
  * This will be called from the loader.c
@@ -98,8 +99,10 @@ void read_common_cleanup(void) {
  * @param out Pointer to a read_args structure to fill with the arguments.
  * @return 0 on success, -1 on failure.
  */
-int fetch_read_args(pid_t pid, const struct syscall_event *e,
-                    struct read_args *out) {
+int fetch_read_args(pid_t pid,                     // [in]
+                    const struct syscall_event *e, // [in]
+                    struct read_args *out          // [out]
+) {
     memset(out, 0, sizeof(*out));
     out->fd = (int)e->enter.args[0];
 
