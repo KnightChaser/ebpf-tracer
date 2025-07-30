@@ -80,6 +80,8 @@ long read_string_from_process(pid_t pid, unsigned long addr, char *buffer,
         process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0);
 
     if (bytes_read < 0) {
+        // log_error("Failed to read string from process %d at address %lx: %s",
+        //           pid, addr, strerror(errno));
         return -1;
     }
     if ((size_t)bytes_read < size) {
