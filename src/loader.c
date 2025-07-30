@@ -233,6 +233,9 @@ void bpf_loader_cleanup(void) {
         g_skel = NULL;
     }
 
+    // Clean state-management hashmaps for syscalls
+    read_common_cleanup();
+
     // Clean up syscall handlers
     fd_cache_cleanup();
 

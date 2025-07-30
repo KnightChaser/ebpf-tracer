@@ -13,6 +13,7 @@ struct read_args {
     int iovcnt;        // for readv()
 };
 
+void read_common_cleanup(void);
 int fetch_read_args(pid_t pid, const struct syscall_event *e,
                     struct read_args *out);
 void read_enter_dispatch(pid_t pid, const struct syscall_event *e);

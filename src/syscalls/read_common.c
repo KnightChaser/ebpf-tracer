@@ -8,6 +8,7 @@
 #include "handlers/handle_preadv.h"
 #include "handlers/handle_read.h"
 #include "handlers/handle_readv.h"
+#include "hashmap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,70 +18,75 @@
 #include <unistd.h>
 
 /**
- * Structure to hold pending (file) read requests.
- * This is used to track reads that are in progress but not yet resolved.
+ * The item that will be stored int he hashmap.
+ * It must contain the key (tid) and the value (args)
  */
-
-struct pending_read {
+struct pending_read_item {
+    pid_t tid;
     struct read_args args;
-    struct pending_read *next;
 };
 
-static struct pending_read *read_pending_list_head = NULL;
-static struct pending_read *read_pending_list_tail = NULL;
-
 /**
- * Adds a pending read request to the list.
- * This is used to track reads that are in progress but not yet resolved.
+ * Compare function for the hashmap, required by hashmap.c
+ * It compares items by their thread ID (tid).
  *
- * @param r The read_args structure containing the arguments for the read
- * syscall.
+ * @param a Pointer to the first item.
+ * @param b Pointer to the second item.
+ * @param udata Unused user data pointer. (Required by hashmap API but unused
+ * explicitly)
  */
-static void read_pending_push(const struct read_args *r) {
-    struct pending_read *n = calloc(1, sizeof(struct pending_read));
-    if (!n) {
-        // Memory allocation failed
-        perror("Failed to allocate memory for pending read");
-        return;
-    }
+static int pending_read_compare(const void *a, const void *b,
+                                void *udata __attribute__((unused))) {
+    const struct pending_read_item *item_a = a;
+    const struct pending_read_item *item_b = b;
 
-    n->args = *r;
-    n->next = NULL;
-
-    // If this is the first pending read, set it as the head.
-    // If there is already a tail, link it to the new node.
-    if (!read_pending_list_tail) {
-        read_pending_list_head = n;
-    } else {
-        read_pending_list_tail->next = n;
-    }
-    read_pending_list_tail = n;
+    return item_a->tid - item_b->tid;
 }
 
 /**
- * Pops the next pending read request from the list.
- * This is used to resolve reads that are in progress but not yet resolved.
+ * Hash function for the hashmap, required by hashmap.c
+ * It hashes the thread ID (tid) of the pending read item.
  *
- * @return The read_args structure containing the arguments for the read
- * syscall, or an empty read_args structure if no pending reads.
+ * @param item Pointer to the item to hash.
+ * @param seed0 First seed for hashing.
+ * @param seed1 Second seed for hashing.
+ * @return The computed hash value.
  */
-static struct read_args read_pending_pop(void) {
-    struct read_args empty = {0};
-    if (!read_pending_list_head) {
-        // No pending reads
-        return empty;
-    }
+static uint64_t pending_read_hash(const void *item, uint64_t seed0,
+                                  uint64_t seed1) {
+    const struct pending_read_item *p = item;
+    return hashmap_sip(&p->tid, sizeof(p->tid), seed0, seed1);
+}
 
-    struct pending_read *n = read_pending_list_head;
-    struct read_args ret = n->args;
-    read_pending_list_head = n->next;
-    if (!read_pending_list_head) {
-        // If we popped the last element, reset the tail as well.
-        read_pending_list_tail = NULL;
-    }
-    free(n);
+// Global hashmap to store pending reads
+static struct hashmap *pending_reads_map = NULL;
 
-    return ret;
+/**
+ * Ensures that the pending reads hashmap is initialized.
+ * If it is not initialized, it creates a new hashmap for pending reads.
+ * (struct pending_read_item)
+ */
+static void ensure_map_initialized(void) {
+    if (pending_reads_map == NULL) {
+        pending_reads_map =
+            hashmap_new(sizeof(struct pending_read_item), // size of the item
+                        0,                                // initial capacity
+                        0,                                // seed0
+                        0,                                // seed1
+                        pending_read_hash,                // hash function
+                        pending_read_compare,             // compare function
+                        NULL, NULL);
+    }
+}
+/**
+ * Cleans up the pending reads hashmap.
+ * This will be called from the loader.c
+ */
+void read_common_cleanup(void) {
+    if (pending_reads_map) {
+        hashmap_free(pending_reads_map);
+        pending_reads_map = NULL;
+    }
 }
 
 /**
@@ -165,6 +171,9 @@ int fetch_read_args(pid_t pid, const struct syscall_event *e,
  * @param e The syscall event containing the arguments.
  */
 void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
+    // NOTE: Ensure the hashmap is well initialized before using it.
+    ensure_map_initialized();
+
     switch (e->syscall_nr) {
     case SYS_read:
         handle_read_enter(pid, e);
@@ -189,12 +198,13 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
     {
         struct read_args ra;
         if (fetch_read_args(pid, e, &ra) == 0) {
-            read_pending_push(&ra);
-        } else {
-            // If fetching the arguments failed, push an empty read_args
-            struct read_args empty = {0};
-            read_pending_push(&empty);
+            // On success, stash the argument in the hash map with the thread ID
+            // as the key
+            hashmap_set(pending_reads_map,
+                        &(struct pending_read_item){.tid = pid, .args = ra});
         }
+        // If such fetch job fails, we simply don't add anything to the map.
+        // The exit handler will find nothing from the hashmap then!
     }
 }
 
@@ -206,7 +216,11 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
  * @param e The syscall event containing the arguments.
  */
 void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
-    struct read_args ra = read_pending_pop();
+    if (!pending_reads_map) {
+        handle_sys_exit_default(pid, e);
+        return;
+    }
+
     long n = e->exit.retval;
 
     // first, print the normal return info
@@ -227,6 +241,21 @@ void read_exit_dispatch(pid_t pid, const struct syscall_event *e) {
         handle_sys_exit_default(pid, e);
         break;
     }
+
+    // Retrieve the stashed arguments using the thread ID.
+    struct pending_read_item *item = (struct pending_read_item *)hashmap_get(
+        pending_reads_map, &(struct pending_read_item){.tid = pid});
+    if (!item) {
+        // No stashed argument. This can happen if the corresponding enter event
+        // has failed or we started tracing mid-syscall.
+        // We can't dump data anymore, we are done.
+        return;
+    }
+
+    struct read_args ra = item->args;
+
+    // NOTE: Delete the entry from the map now that we're done with it
+    hashmap_delete(pending_reads_map, &(struct pending_read_item){.tid = pid});
 
     // now dump the data if anything was read
     if (n > 0) {
