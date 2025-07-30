@@ -99,6 +99,13 @@ syscall_sources = files(
 
 utils_sources = files('utils/logger.c', 'utils/remote_bytes.c')
 
+hashmap_inc = include_directories('deps/hashmap.c')
+hashmap_lib = static_library(
+  'hashmap',
+  ['deps/hashmap.c/hashmap.c'],
+  include_directories: hashmap_inc,
+)
+
 common_sources = ['loader.c', 'syscall_table.c'] + syscall_sources + utils_sources
 
 executable(
@@ -106,4 +113,6 @@ executable(
   sources: ['main.c', bpf_skel_h, common_sources],
   dependencies: libbpf_dep,
   install: true,
+  include_directories: hashmap_inc,
+  link_with: hashmap_lib,
 )

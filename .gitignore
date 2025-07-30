@@ -1,3 +1,6 @@
+# Clangd cache
+.cache
+
 # Prerequisites
 *.d
 
