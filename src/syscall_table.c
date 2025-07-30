@@ -46,7 +46,7 @@ void syscall_table_init(void) {
     // fcntl
     REGISTER_SYSCALL_HANDLER(SYS_fcntl, handle_fcntl_enter, handle_fcntl_exit);
 
-    // read
+    // read/readv/pread64/preadv
     REGISTER_SYSCALL_HANDLER(SYS_pread64, read_enter_dispatch,
                              read_exit_dispatch);
 #ifdef SYS_preadv
@@ -58,4 +58,8 @@ void syscall_table_init(void) {
     REGISTER_SYSCALL_HANDLER(SYS_read, read_enter_dispatch, read_exit_dispatch);
     REGISTER_SYSCALL_HANDLER(SYS_readv, read_enter_dispatch,
                              read_exit_dispatch);
+
+    // write/writev/pwrite64/pwritev
+    REGISTER_SYSCALL_HANDLER(SYS_write, write_enter_dispatch,
+                             write_exit_dispatch);
 }

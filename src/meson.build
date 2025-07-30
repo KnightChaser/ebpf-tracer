@@ -79,6 +79,7 @@ handlers = files(
   'syscalls/handlers/handle_preadv.c',
   'syscalls/handlers/handle_read.c',
   'syscalls/handlers/handle_readv.c',
+  'syscalls/handlers/handle_write.c',
 )
 
 syscall_sources = files(
@@ -95,6 +96,8 @@ syscall_sources = files(
   'syscalls/read_common.c',
   'syscalls/read_common.h',
   'syscalls/utils.h',
+  'syscalls/write_common.c',
+  'syscalls/write_common.h',
 ) + handlers
 
 utils_sources = files('utils/logger.c', 'utils/remote_bytes.c')
