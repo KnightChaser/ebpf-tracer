@@ -17,10 +17,6 @@
 void handle_read_enter(pid_t pid __attribute__((unused)),
                        const struct syscall_event *e) {
     struct read_args args;
-    if (fetch_read_args(pid, e, &args) != 0) {
-        handle_sys_enter_default(pid, e);
-        return;
-    }
 
     char argbuf[64];
     snprintf(argbuf, sizeof(argbuf), "%d, %p, %zu",

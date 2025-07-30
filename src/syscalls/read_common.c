@@ -174,6 +174,14 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
     // NOTE: Ensure the hashmap is well initialized before using it.
     ensure_map_initialized();
 
+    struct read_args ra;
+    if (fetch_read_args(pid, e, &ra) != 0) {
+        // If fetching fails, we can't process this system call with our
+        // handlers.
+        handle_sys_enter_default(pid, e);
+        return;
+    }
+
     switch (e->syscall_nr) {
     case SYS_read:
         handle_read_enter(pid, e);
@@ -194,18 +202,9 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
         handle_sys_enter_default(pid, e);
     }
 
-    // NOTE: resolve & stash the read arguments for the read_exit
-    {
-        struct read_args ra;
-        if (fetch_read_args(pid, e, &ra) == 0) {
-            // On success, stash the argument in the hash map with the thread ID
-            // as the key
-            hashmap_set(pending_reads_map,
-                        &(struct pending_read_item){.tid = pid, .args = ra});
-        }
-        // If such fetch job fails, we simply don't add anything to the map.
-        // The exit handler will find nothing from the hashmap then!
-    }
+    // Stash the successfully fetched args into the hashmap
+    hashmap_set(pending_reads_map,
+                &(struct pending_read_item){.tid = pid, .args = ra});
 }
 
 /**

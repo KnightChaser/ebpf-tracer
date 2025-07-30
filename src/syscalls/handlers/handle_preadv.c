@@ -1,6 +1,5 @@
 // src/syscalls/handlers/handle_preadv.c
 #define _GNU_SOURCE
-#include "../../syscalls/syscalls.h"
 #include "../../utils/logger.h"
 #include "../fd_cache.h"
 #include "../read_common.h"
@@ -15,12 +14,9 @@
  * @param pid The process ID.
  * @param e The syscall event containing the arguments.
  */
-void handle_preadv_enter(pid_t pid, const struct syscall_event *e) {
+void handle_preadv_enter(pid_t pid __attribute__((unused)),
+                         const struct syscall_event *e) {
     struct read_args args;
-    if (fetch_read_args(pid, e, &args) != 0) {
-        handle_sys_enter_default(pid, e);
-        return;
-    }
 
     char argbuf[96];
     snprintf(argbuf, sizeof(argbuf), "%d, %p, %d, %" PRIu64,
