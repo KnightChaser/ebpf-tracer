@@ -52,6 +52,7 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
     [SYS_ioctl] = {"ioctl", 3},
     [SYS_pread64] = {"pread64", 4},
     [SYS_pwrite64] = {"pwrite64", 4},
+    [SYS_pwritev] = {"pwritev", 4},
     [SYS_readv] = {"readv", 3},
     [SYS_preadv] = {"preadv", 4},
     [SYS_writev] = {"writev", 3},

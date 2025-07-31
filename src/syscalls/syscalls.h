@@ -35,5 +35,7 @@ void handle_sys_exit_default(pid_t pid, const struct syscall_event *e);
 #include "read_common.h"
 
 #include "handlers/handle_pwrite64.h"
+#include "handlers/handle_pwritev.h"
 #include "handlers/handle_write.h"
+#include "handlers/handle_writev.h"
 #include "write_common.h"

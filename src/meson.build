@@ -78,9 +78,11 @@ handlers = files(
   'syscalls/handlers/handle_pread64.c',
   'syscalls/handlers/handle_preadv.c',
   'syscalls/handlers/handle_pwrite64.c',
+  'syscalls/handlers/handle_pwritev.c',
   'syscalls/handlers/handle_read.c',
   'syscalls/handlers/handle_readv.c',
   'syscalls/handlers/handle_write.c',
+  'syscalls/handlers/handle_writev.c',
 )
 
 syscall_sources = files(

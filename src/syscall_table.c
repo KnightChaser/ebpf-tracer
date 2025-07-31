@@ -64,4 +64,12 @@ void syscall_table_init(void) {
                              write_exit_dispatch);
     REGISTER_SYSCALL_HANDLER(SYS_pwrite64, write_enter_dispatch,
                              write_exit_dispatch);
+    REGISTER_SYSCALL_HANDLER(SYS_writev, write_enter_dispatch,
+                             write_exit_dispatch);
+#ifdef SYS_pwritev
+    if (IS_SYSCALL_SUPPORTED(SYS_pwritev)) {
+        REGISTER_SYSCALL_HANDLER(SYS_pwritev, write_enter_dispatch,
+                                 write_exit_dispatch);
+    }
+#endif
 }

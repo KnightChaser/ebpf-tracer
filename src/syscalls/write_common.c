@@ -5,10 +5,14 @@
 #include "../utils/logger.h"
 #include "../utils/remote_bytes.h"
 #include "handlers/handle_pwrite64.h"
+#include "handlers/handle_pwritev.h"
 #include "handlers/handle_write.h"
+#include "handlers/handle_writev.h"
 #include "hashmap.h"
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/uio.h>
 
 /**
  * NOTE: In this write_common file, we handle the common logic for
@@ -101,6 +105,13 @@ static void ensure_map_initialized(void) {
  */
 void write_common_cleanup(void) {
     if (pending_writes_map) {
+        // args.iov allocates memory for the iovecs, so we must clean it up.
+        size_t iter = 0;
+        void *item;
+        while (hashmap_iter(pending_writes_map, &iter, &item)) {
+            struct pending_write_item *p_item = item;
+            free(p_item->args.iov);
+        }
         hashmap_free(pending_writes_map);
         pending_writes_map = NULL;
     }
@@ -136,6 +147,53 @@ int fetch_write_args(pid_t pid __attribute__((unused)), // [in]
         out->offset = (off_t)e->enter.args[3];
         return 0;
 
+    case SYS_pwritev:
+        // ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt
+        //                 off_t offset);
+        out->offset = (off_t)e->enter.args[3];
+        // fallthrough
+
+    case SYS_writev:
+        // ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
+        out->iovcnt = (int)e->enter.args[2];
+        if (out->iovcnt <= 0) {
+            // NOTE: Not necessarily an error, it can be technically valid to
+            // have 0 iovecs. But we cannot proceed with 0 iovecs.
+            return 0;
+        }
+
+        // Create the iovec array to hold the iovecs of the vectored write
+        // syscalls. (later store data into the hashmap...)
+        out->iov = calloc(out->iovcnt, sizeof(struct iovec));
+        if (!out->iov) {
+            log_error("Failed to allocate memory for iovecs in syscall %ld: %s",
+                      e->syscall_nr, strerror(errno));
+            return -1;
+        }
+
+        struct iovec liov = {
+            .iov_base = out->iov,
+            .iov_len = sizeof(struct iovec) * out->iovcnt,
+        };
+
+        struct iovec riov = {.iov_base = (void *)e->enter.args[1],
+                             .iov_len = sizeof(struct iovec) * out->iovcnt};
+
+        if (process_vm_readv(pid, &liov, 1, &riov, 1, 0) < 0) {
+            log_error("Failed to read iovecs for syscall %ld: %s",
+                      e->syscall_nr, strerror(errno));
+            free(out->iov);
+            out->iov = NULL;
+            return -1;
+        }
+
+        size_t total = 0;
+        for (int i = 0; i < out->iovcnt; i++) {
+            total += out->iov[i].iov_len;
+        }
+        out->count = total;
+        return 0;
+
     default:
         log_error("Unhandled write-like syscall %ld in fetch_write_args",
                   e->syscall_nr);
@@ -160,7 +218,10 @@ void write_enter_dispatch(pid_t pid, const struct syscall_event *e) {
         return;
     }
 
-    // NOTE: For now, we don't store pending writes in a hashmap.
+    // Flag to check if the current syscall is vectored
+    bool vectored =
+        (e->syscall_nr == SYS_writev || e->syscall_nr == SYS_pwritev);
+
     switch (e->syscall_nr) {
     case SYS_write:
         handle_write_enter(pid, e, &wa);
@@ -168,13 +229,32 @@ void write_enter_dispatch(pid_t pid, const struct syscall_event *e) {
     case SYS_pwrite64:
         handle_pwrite64_enter(pid, e, &wa);
         break;
+    case SYS_writev:
+        handle_writev_enter(pid, e, &wa);
+        break;
+    case SYS_pwritev:
+        handle_pwritev_enter(pid, e, &wa);
+        break;
     default:
         handle_sys_enter_default(pid, e);
+        if (vectored) {
+            // vectored write syscalls require the iovecs to be copied
+            free(wa.iov);
+        }
         break;
     }
 
-    if (wa.count > 0) {
-        dump_remote_bytes(pid, (void *)wa.buf, wa.count, wa.count);
+    if (vectored) {
+        // For vectored writes, stash the arguments into the hashmap,
+        // including the copied iovec array
+        hashmap_set(pending_writes_map, &(struct pending_write_item){
+                                            .tid = pid,
+                                            .args = wa,
+                                        });
+    } else {
+        if (wa.count > 0) {
+            dump_remote_bytes(pid, (void *)wa.buf, wa.count, wa.count);
+        }
     }
 }
 
@@ -186,12 +266,10 @@ void write_enter_dispatch(pid_t pid, const struct syscall_event *e) {
  * @param e The syscall event containing the arguments.
  */
 void write_exit_dispatch(pid_t pid, const struct syscall_event *e) {
-    if (!pending_writes_map) {
-        handle_sys_exit_default(pid, e);
-        return;
-    }
+    bool vectored =
+        (e->syscall_nr == SYS_writev || e->syscall_nr == SYS_pwritev);
+    long n = e->exit.retval;
 
-    // NOTE: For now, there is no stashed data to retrieve.
     switch (e->syscall_nr) {
     case SYS_write:
         handle_write_exit(pid, e);
@@ -199,8 +277,30 @@ void write_exit_dispatch(pid_t pid, const struct syscall_event *e) {
     case SYS_pwrite64:
         handle_pwrite64_exit(pid, e);
         break;
+    case SYS_writev:
+        handle_writev_exit(pid, e);
+        break;
+    case SYS_pwritev:
+        handle_pwritev_exit(pid, e);
+        break;
     default:
         handle_sys_exit_default(pid, e);
         break;
+    }
+
+    if (vectored) {
+        // For vectored writes, we need to retrieve the arguments from the
+        // hashmap and dump the written bytes.
+        struct pending_write_item *item =
+            (struct pending_write_item *)hashmap_get(
+                pending_writes_map, &(struct pending_write_item){.tid = pid});
+        if (item) {
+            if (n > 0) {
+                // If bytes were actually written, dump the bytes now!
+                dump_remote_iov(pid, item->args.iov, item->args.iovcnt,
+                                (size_t)n, item->args.count);
+            }
+            free(item->args.iov);
+        }
     }
 }
