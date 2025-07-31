@@ -4,6 +4,7 @@
 #include "../syscalls/syscalls.h"
 #include "../utils/logger.h"
 #include "../utils/remote_bytes.h"
+#include "handlers/handle_pwrite64.h"
 #include "handlers/handle_write.h"
 #include "hashmap.h"
 #include <stdlib.h>
@@ -126,7 +127,15 @@ int fetch_write_args(pid_t pid __attribute__((unused)), // [in]
         out->buf = (unsigned long)e->enter.args[1];
         out->count = (size_t)e->enter.args[2];
         return 0;
-    // TODO: Later, add pwrite64, writev, pwritev, etc.
+
+    case SYS_pwrite64:
+        // ssize_t pwrite64(int fd, const void *buf, size_t count,
+        //                  off64_t offset);
+        out->buf = (unsigned long)e->enter.args[1];
+        out->count = (size_t)e->enter.args[2];
+        out->offset = (off_t)e->enter.args[3];
+        return 0;
+
     default:
         log_error("Unhandled write-like syscall %ld in fetch_write_args",
                   e->syscall_nr);
@@ -156,6 +165,9 @@ void write_enter_dispatch(pid_t pid, const struct syscall_event *e) {
     case SYS_write:
         handle_write_enter(pid, e, &wa);
         break;
+    case SYS_pwrite64:
+        handle_pwrite64_enter(pid, e, &wa);
+        break;
     default:
         handle_sys_enter_default(pid, e);
         break;
@@ -183,6 +195,9 @@ void write_exit_dispatch(pid_t pid, const struct syscall_event *e) {
     switch (e->syscall_nr) {
     case SYS_write:
         handle_write_exit(pid, e);
+        break;
+    case SYS_pwrite64:
+        handle_pwrite64_exit(pid, e);
         break;
     default:
         handle_sys_exit_default(pid, e);

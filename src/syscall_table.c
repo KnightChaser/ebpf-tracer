@@ -62,4 +62,6 @@ void syscall_table_init(void) {
     // write/writev/pwrite64/pwritev
     REGISTER_SYSCALL_HANDLER(SYS_write, write_enter_dispatch,
                              write_exit_dispatch);
+    REGISTER_SYSCALL_HANDLER(SYS_pwrite64, write_enter_dispatch,
+                             write_exit_dispatch);
 }
