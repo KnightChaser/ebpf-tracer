@@ -10,6 +10,30 @@
 #include <string.h>
 
 /**
+ * NOTE: In this write_common file, we handle the common logic for
+ * the following system calls:
+ * - write()
+ * - pwrite64()
+ * - writev()
+ * - pwritev()
+ * However, for write() and pwrite64() system calls receive the buffer
+ * itself as a parameter. So, its contents are valid and ready to be
+ * read by the kernel at sys_enter. Therefore, we can and we should
+ * read and dump the contents of the buffer at sys_enter.
+ * We have all the information we need: the remote address(buffer) and
+ * the length(count). At sys_exit, the only new piece of information
+ * its the return value. We don't need any information from the enter event
+ * to interpret the exit event. So, for write() and pwrite64()
+ * we don't need to store any information in the hashmap.
+ * However, for writev() and pwritev() system calls, the buffer is
+ * passed as an array of iovecs. And the return value at the exit indicates
+ * how many bytes were written. Such values may be differ(less) than requested
+ * at the enter. So, we need to store the information at sys_enter and
+ * retrieve it at sys_exit. For that, we will use a hashmap to store the
+ * pending writes of writev() and pwritev() syscalls. (only)
+ */
+
+/**
  * The item that will be stored int he hashmap.
  * It must contain the key (tid) and the value (write_args)
  */
