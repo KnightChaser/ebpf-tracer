@@ -41,7 +41,8 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
     [SYS_dup3] = {"dup3", 3},
 #endif
     [SYS_fcntl] = {"fcntl", 3},       [SYS_link] = {"link", 2},
-    [SYS_linkat] = {"linkat", 5},
+    [SYS_linkat] = {"linkat", 5},     [SYS_unlink] = {"unlink", 1},
+    [SYS_unlinkat] = {"unlinkat", 3},
 };
 
 /**
