@@ -63,6 +63,8 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
     [SYS_exit_group] = {"exit_group", 1},
     [SYS_fcntl] = {"fcntl", 3},
     [SYS_openat] = {"openat", 3},
+    [SYS_mkdir] = {"mkdir", 2},
+    [SYS_mkdirat] = {"mkdirat", 3},
 };
 
 /**

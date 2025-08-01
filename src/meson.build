@@ -72,6 +72,8 @@ handlers = files(
   'syscalls/handlers/handle_dup2.c',
   'syscalls/handlers/handle_dup3.c',
   'syscalls/handlers/handle_fcntl.c',
+  'syscalls/handlers/handle_mkdir.c',
+  'syscalls/handlers/handle_mkdirat.c',
   'syscalls/handlers/handle_open.c',
   'syscalls/handlers/handle_openat.c',
   'syscalls/handlers/handle_openat2.c',

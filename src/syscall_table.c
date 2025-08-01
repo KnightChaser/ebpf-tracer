@@ -72,4 +72,9 @@ void syscall_table_init(void) {
                                  write_exit_dispatch);
     }
 #endif
+
+    // mkdir/mkdirat
+    REGISTER_SYSCALL_HANDLER(SYS_mkdir, handle_mkdir_enter, handle_mkdir_exit);
+    REGISTER_SYSCALL_HANDLER(SYS_mkdirat, handle_mkdirat_enter,
+                             handle_mkdirat_exit);
 }
