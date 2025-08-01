@@ -73,8 +73,9 @@ void syscall_table_init(void) {
     }
 #endif
 
-    // mkdir/mkdirat
+    // mkdir/mkdirat/rmdir
     REGISTER_SYSCALL_HANDLER(SYS_mkdir, handle_mkdir_enter, handle_mkdir_exit);
     REGISTER_SYSCALL_HANDLER(SYS_mkdirat, handle_mkdirat_enter,
                              handle_mkdirat_exit);
+    REGISTER_SYSCALL_HANDLER(SYS_rmdir, handle_rmdir_enter, handle_rmdir_exit);
 }

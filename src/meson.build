@@ -83,6 +83,7 @@ handlers = files(
   'syscalls/handlers/handle_pwritev.c',
   'syscalls/handlers/handle_read.c',
   'syscalls/handlers/handle_readv.c',
+  'syscalls/handlers/handle_rmdir.c',
   'syscalls/handlers/handle_write.c',
   'syscalls/handlers/handle_writev.c',
 )
