@@ -32,6 +32,9 @@ void handle_sys_enter_default(pid_t pid __attribute__((unused)),
  * @param e The syscall event containing the syscall information.
  */
 void handle_sys_exit_default(pid_t pid __attribute__((unused)),
-                             const struct syscall_event *e) {
-    log_kv("UNKNOWNSYSCALL", "0x%lx", e->exit.retval);
+                             const struct syscall_event *e
+                             __attribute__((unused))) {
+    // NOTE: Don't log the return value for unknown syscalls,
+    // as it may not be meaningful or could be an error code.
+    // log_kv("UNKNOWNSYSCALL", "0x%lx", e->exit.retval);
 }
