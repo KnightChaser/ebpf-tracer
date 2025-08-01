@@ -33,14 +33,15 @@ static const struct tracer_syscall_info syscalls[MAX_SYSCALL_NR] = {
     [SYS_preadv] = {"preadv", 4},     [SYS_pread64] = {"pread64", 4},
     [SYS_write] = {"write", 3},       [SYS_writev] = {"writev", 3},
     [SYS_pwrite64] = {"pwrite64", 4}, [SYS_pwritev] = {"pwritev", 4},
-    [SYS_open] = {"open", 2},         [SYS_close] = {"close", 1},
-    [SYS_mkdir] = {"mkdir", 2},       [SYS_mkdirat] = {"mkdirat", 3},
-    [SYS_rmdir] = {"rmdir", 1},       [SYS_dup] = {"dup", 1},
-    [SYS_dup2] = {"dup2", 2},
+    [SYS_open] = {"open", 2},         [SYS_openat] = {"openat", 3},
+    [SYS_close] = {"close", 1},       [SYS_mkdir] = {"mkdir", 2},
+    [SYS_mkdirat] = {"mkdirat", 3},   [SYS_rmdir] = {"rmdir", 1},
+    [SYS_dup] = {"dup", 1},           [SYS_dup2] = {"dup2", 2},
 #ifdef SYS_dup3
     [SYS_dup3] = {"dup3", 3},
 #endif
-    [SYS_fcntl] = {"fcntl", 3},       [SYS_openat] = {"openat", 3},
+    [SYS_fcntl] = {"fcntl", 3},       [SYS_link] = {"link", 2},
+    [SYS_linkat] = {"linkat", 5},
 };
 
 /**

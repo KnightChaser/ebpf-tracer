@@ -78,4 +78,9 @@ void syscall_table_init(void) {
     REGISTER_SYSCALL_HANDLER(SYS_mkdirat, handle_mkdirat_enter,
                              handle_mkdirat_exit);
     REGISTER_SYSCALL_HANDLER(SYS_rmdir, handle_rmdir_enter, handle_rmdir_exit);
+
+    // link/linkat
+    REGISTER_SYSCALL_HANDLER(SYS_link, handle_link_enter, handle_link_exit);
+    REGISTER_SYSCALL_HANDLER(SYS_linkat, handle_linkat_enter,
+                             handle_linkat_exit);
 }
