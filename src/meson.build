@@ -86,6 +86,8 @@ handlers = files(
   'syscalls/handlers/handle_read.c',
   'syscalls/handlers/handle_readv.c',
   'syscalls/handlers/handle_rmdir.c',
+  'syscalls/handlers/handle_symlink.c',
+  'syscalls/handlers/handle_symlinkat.c',
   'syscalls/handlers/handle_unlink.c',
   'syscalls/handlers/handle_unlinkat.c',
   'syscalls/handlers/handle_write.c',

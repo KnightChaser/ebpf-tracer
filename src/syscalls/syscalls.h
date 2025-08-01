@@ -45,5 +45,7 @@ void handle_sys_exit_default(pid_t pid, const struct syscall_event *e);
 #include "handlers/handle_mkdir.h"
 #include "handlers/handle_mkdirat.h"
 #include "handlers/handle_rmdir.h"
+#include "handlers/handle_symlink.h"
+#include "handlers/handle_symlinkat.h"
 #include "handlers/handle_unlink.h"
 #include "handlers/handle_unlinkat.h"
