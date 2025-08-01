@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #include "open_common.h"
 #include "../utils/logger.h"
+#include "../utils/path_utils.h"
 #include "fd_cache.h"
 #include "handlers/handle_open.h"
 #include "handlers/handle_openat.h"
@@ -108,47 +109,6 @@ void open_common_cleanup(void) {
         hashmap_free(pending_opens_map);
         pending_opens_map = NULL;
     }
-}
-
-/**
- * Builds an absolute path from a relative path and the current working
- * directory of the specified process.
- *
- * @param pid The process ID of the traced process.
- * @param raw The raw relative path to convert.
- * @param out The buffer to store the resulting absolute path.
- * @param outsz The size of the output buffer.
- * @return 0 on success, -1 on error.
- */
-static int build_abs_path(pid_t pid,       // [IN]
-                          const char *raw, // [IN]
-                          char *out,       // [OUT]
-                          size_t outsz     // [IN]
-) {
-    if (raw[0] == '/') {
-        // already an absolute path
-        snprintf(out, outsz, "%s", raw);
-        return 0;
-    }
-
-    // read /proc/<pid>/cwd to get the current working directory
-    char cwd_link[64];
-    char cwd[PATH_MAX];
-    int n = snprintf(cwd_link, sizeof(cwd_link), "/proc/%d/cwd", pid);
-    if (n < 0 || (size_t)n >= sizeof(cwd_link)) {
-        return -1;
-    }
-    ssize_t m = readlink(cwd_link, cwd, sizeof(cwd) - 1);
-    if (m < 0 || m >= (ssize_t)(sizeof(cwd) - 1)) {
-        return -1;
-    }
-    cwd[m] = '\0';
-
-    // combine them to build the full path
-    if ((size_t)snprintf(out, outsz, "%s/%s", cwd, raw) >= outsz) {
-        return -1;
-    }
-    return 0;
 }
 
 /**
@@ -279,7 +239,8 @@ void open_enter_dispatch(pid_t pid, const struct syscall_event *e) {
     struct open_args oa;
     char abs_path_buf[PATH_MAX];
     if (fetch_open_args(pid, e, &oa) == 0 &&
-        build_abs_path(pid, oa.path, abs_path_buf, sizeof(abs_path_buf)) == 0) {
+        resolve_abs_path(pid, oa.dirfd, oa.path, abs_path_buf,
+                         sizeof(abs_path_buf)) == 0) {
         // If the arguments are successfully fetched and built the absolute
         // path as well, stash it in the hashmap
         hashmap_set(pending_opens_map,

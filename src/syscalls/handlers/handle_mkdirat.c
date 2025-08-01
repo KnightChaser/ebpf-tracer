@@ -3,7 +3,8 @@
 #include "handle_mkdirat.h"
 #include "../../syscalls/syscalls.h"
 #include "../../utils/logger.h"
-#include <fcntl.h> // For AT_FDCWD
+#include "../../utils/path_utils.h"
+#include <fcntl.h>
 #include <linux/limits.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -20,25 +21,33 @@
 void handle_mkdirat_enter(pid_t pid, const struct syscall_event *e) {
     int dirfd = (int)e->enter.args[0];
 
-    char path[PATH_MAX] = {0};
-    if (read_string_from_process(pid, e->enter.args[1], path, sizeof(path)) <=
-        0) {
-        snprintf(path, sizeof(path), "0x%lx (invalid)", e->enter.args[1]);
+    char rel_path[PATH_MAX] = {0};
+    if (read_string_from_process(pid, e->enter.args[1], rel_path,
+                                 sizeof(rel_path)) <= 0) {
+        snprintf(rel_path, sizeof(rel_path), "0x%lx (invalid)",
+                 e->enter.args[1]);
     }
 
     mode_t mode = (mode_t)e->enter.args[2];
 
     char argbuf[PATH_MAX + 32];
     if (dirfd == AT_FDCWD) {
-        snprintf(argbuf, sizeof(argbuf), "AT_FDCWD, \"%s\", 0%o", path, mode);
+        snprintf(argbuf, sizeof(argbuf), "AT_FDCWD, \"%s\", 0%o", rel_path,
+                 mode);
     } else {
-        snprintf(argbuf, sizeof(argbuf), "%d, \"%s\", 0%o", dirfd, path, mode);
+        snprintf(argbuf, sizeof(argbuf), "%d, \"%s\", 0%o", dirfd, rel_path,
+                 mode);
     }
 
     log_syscall(e->syscall_nr, e->enter.name, argbuf, /*retval=*/0);
 
-    // NOTE: Optional) Try to resolve the path for `dirfd` from our fd_cache
-    // for more context, but this is a great start.
+    char abs_path[PATH_MAX] = {0};
+    if (resolve_abs_path(pid, dirfd, rel_path, abs_path, sizeof(abs_path)) ==
+        0) {
+        log_kv("path", "%s", abs_path);
+    } else {
+        log_kv("path", "<could not resolve>");
+    }
 }
 
 /**

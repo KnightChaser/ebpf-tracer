@@ -105,7 +105,7 @@ syscall_sources = files(
   'syscalls/write_common.h',
 ) + handlers
 
-utils_sources = files('utils/logger.c', 'utils/remote_bytes.c')
+utils_sources = files('utils/logger.c', 'utils/path_utils.c', 'utils/remote_bytes.c')
 
 hashmap_inc = include_directories('deps/hashmap.c')
 hashmap_lib = static_library(
