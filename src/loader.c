@@ -230,8 +230,9 @@ void bpf_loader_cleanup(void) {
 
     // Clean state-management hashmaps for syscalls
     read_common_cleanup();
-    open_common_cleanup();
     write_common_cleanup();
+    open_common_cleanup();
+    handle_close_cleanup();
     dup_common_cleanup();
 
     // Clean up syscall handlers
