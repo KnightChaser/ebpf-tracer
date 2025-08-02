@@ -2,7 +2,7 @@
 
 > A simple `strace`-like syscall tracer for Linux, built with C and eBPF.
 
-This project is a personal exploration into Linux systems programming and eBPF(extended Berkeley Packet Filter). It is not intended to be a feature-complete or production-grade replacement for tools like `strace` (Of course).
+This project is a personal exploration into Linux systems programming and eBPF(extended Berkeley Packet Filter). It is not intended to be a feature-complete or production-grade replacement for tools like `strace` (Of course). Side note, I was incredibly motivated by [SH4DY's "Writing a system call tracer using eBPF" article](https://sh4dy.com/2024/08/03/beetracer/) and [its public source code on GitHub](https://github.com/0xSh4dy/bee_tracer) while making this project!
 
 | Screenshot #1 | Screenshot #2 |
 |--------|--------|
