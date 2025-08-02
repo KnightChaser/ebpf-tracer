@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static char **cache = NULL; // Pointer to the file descriptor cache
                             // which will be used throughout the program
@@ -20,6 +21,11 @@ void fd_cache_init(void) {
         perror("Failed to initialize fd cache");
         exit(EXIT_FAILURE);
     }
+
+    // Pre-populate standard file descriptors
+    fd_cache_set(STDIN_FILENO, "/dev/stdin");
+    fd_cache_set(STDOUT_FILENO, "/dev/stdout");
+    fd_cache_set(STDERR_FILENO, "/dev/stderr");
 }
 
 /**
