@@ -1,5 +1,5 @@
 // src/syscalls/default.c
-#include "../utils/logger.h"
+// #include "../utils/logger.h"
 #include "syscalls.h"
 #include <stdio.h>
 
@@ -21,7 +21,7 @@ void handle_sys_enter_default(pid_t pid __attribute__((unused)),
         printf("0x%lx%s", e->enter.args[i],
                (i == e->enter.num_args - 1) ? "" : ", ");
     }
-    printf(")\n");
+    printf(")");
     fflush(stdout);
 }
 
