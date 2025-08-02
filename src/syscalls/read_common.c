@@ -130,6 +130,7 @@ int fetch_read_args(pid_t pid,                     // [in]
             return -1;
         }
 
+        // WARNING: don't forget to free this later!
         out->iov = calloc(out->iovcnt, sizeof(struct iovec));
         if (!out->iov) {
             perror("calloc");
@@ -187,22 +188,24 @@ void read_enter_dispatch(pid_t pid, const struct syscall_event *e) {
 
     switch (e->syscall_nr) {
     case SYS_read:
-        handle_read_enter(pid, e);
+        handle_read_enter(pid, e, &ra);
         break;
     case SYS_pread64:
-        handle_pread64_enter(pid, e);
+        handle_pread64_enter(pid, e, &ra);
         break;
     case SYS_readv:
-        handle_readv_enter(pid, e);
+        handle_readv_enter(pid, e, &ra);
         break;
     case SYS_preadv:
-        handle_preadv_enter(pid, e);
+        handle_preadv_enter(pid, e, &ra);
         break;
     default:
         log_error("Unhandled syscall: expected either 'read', 'pread64', "
                   "'readv', or 'preadv', got %ld (enter_dispatch)",
                   e->syscall_nr);
         handle_sys_enter_default(pid, e);
+        free(ra.iov); // WARNING: clean up if fetch allocated memory
+        return;
     }
 
     // Stash the successfully fetched args into the hashmap

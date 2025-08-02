@@ -1,5 +1,6 @@
 // src/syscalls/handlers/handle_preadv.c
 #define _GNU_SOURCE
+#include "handle_preadv.h"
 #include "../../utils/logger.h"
 #include "../fd_cache.h"
 #include "../read_common.h"
@@ -13,21 +14,21 @@
  *
  * @param pid The process ID.
  * @param e The syscall event containing the arguments.
+ * @param args The arguments of the preadv syscall.
  */
 void handle_preadv_enter(pid_t pid __attribute__((unused)),
-                         const struct syscall_event *e) {
-    struct read_args args;
-
-    char argbuf[96];
+                         const struct syscall_event *e,
+                         const struct read_args *args) {
+    char argbuf[96] = {0};
     snprintf(argbuf, sizeof(argbuf), "%d, %p, %d, %" PRIu64,
-             args.fd,                  // file descriptor
+             args->fd,                 // file descriptor
              (void *)e->enter.args[1], // pointer to iovec array
-             args.iovcnt,              // number of iovecs
-             args.offset);             // offset in the file
+             args->iovcnt,             // number of iovecs
+             args->offset);            // offset in the file
 
     log_syscall(e->syscall_nr, e->enter.name, argbuf, /*retval=*/0);
 
-    const char *path = fd_cache_get(args.fd);
+    const char *path = fd_cache_get(args->fd);
     if (path) {
         log_kv("path", "%s", path);
     } else {
