@@ -14,6 +14,8 @@ struct dup_args {
     int flags; // NOTE: dup3 only, otherwise 0
 };
 
+void dup_common_cleanup(void);
+void stash_dup_enter(pid_t pid, const struct syscall_event *e);
 int fetch_dup_args(pid_t pid, const struct syscall_event *e,
                    struct dup_args *out);
 void print_dup_exit(pid_t pid, const struct syscall_event *e);

@@ -29,6 +29,9 @@ void handle_dup3_enter(pid_t pid __attribute__((unused)),
     } else {
         log_kv("oldfd (path unresolved)", "%d", oldfd);
     }
+
+    // Stash the dup syscall arguments for the exit handler
+    stash_dup_enter(pid, e);
 }
 
 /**
