@@ -290,17 +290,24 @@ void write_exit_dispatch(pid_t pid, const struct syscall_event *e) {
 
     if (vectored) {
         // For vectored writes, we need to retrieve the arguments from the
-        // hashmap and dump the written bytes.
+        // hashmap and dump the written bytes. And, delete the item from the
+        // hashmap.
         struct pending_write_item *item =
-            (struct pending_write_item *)hashmap_get(
+            (struct pending_write_item *)hashmap_delete(
                 pending_writes_map, &(struct pending_write_item){.tid = pid});
-        if (item) {
-            if (n > 0) {
-                // If bytes were actually written, dump the bytes now!
-                dump_remote_iov(pid, item->args.iov, item->args.iovcnt,
-                                (size_t)n, item->args.count);
-            }
-            free(item->args.iov);
+        if (!item) {
+            log_error("No pending write item found for pid %d in syscall %ld",
+                      pid, e->syscall_nr);
+            return;
         }
+
+        if (n > 0) {
+            // If bytes were actually written, dump the bytes now!
+            dump_remote_iov(pid, item->args.iov, item->args.iovcnt, (size_t)n,
+                            item->args.count);
+        }
+
+        // Free the iovec array allocated in write_enter_dispatch
+        free(item->args.iov);
     }
 }
